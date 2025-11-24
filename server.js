@@ -272,9 +272,235 @@ app.get('/share/:token', (req, res) => {
 
     // Serve the file
     // We can force download or view based on type. Let's try to view.
-    const mimeType = mime.lookup(fullPath) || 'application/octet-stream';
+
     res.setHeader('Content-Type', mimeType);
     fs.createReadStream(fullPath).pipe(res);
+});
+
+// 10. GitHub Integration
+const { Octokit } = require('octokit');
+
+// Helper to get Octokit instance
+const getOctokit = (token) => new Octokit({ auth: token });
+
+// Validate Token
+app.post('/api/github/validate', async (req, res) => {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Token required' });
+
+    try {
+        const octokit = getOctokit(token);
+        const { data } = await octokit.rest.users.getAuthenticated();
+        res.json({ username: data.login });
+    } catch (error) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+});
+
+// List Repositories
+app.get('/api/github/repos', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Token required' });
+
+    try {
+        const octokit = getOctokit(token);
+        const { data } = await octokit.rest.repos.listForAuthenticatedUser({
+            sort: 'updated',
+            per_page: 100
+        });
+        res.json(data.map(repo => ({ name: repo.name, private: repo.private })));
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to list repos' });
+    }
+});
+
+// Create Repository
+app.post('/api/github/create-repo', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { name, private: isPrivate } = req.body;
+    if (!token || !name) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+        const { data } = await octokit.rest.repos.createForAuthenticatedUser({
+            name,
+            private: isPrivate,
+            auto_init: true // Create with README so we can add files
+        });
+        res.json({ name: data.name });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to create repo' });
+    }
+});
+
+// List Files (from 'uploads' folder)
+app.get('/api/github/files', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, path: dirPath = '' } = req.query;
+
+    if (!token || !owner || !repo) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+        // We prefix everything with 'uploads/' to keep the repo clean
+        const targetPath = dirPath ? `uploads/${dirPath}` : 'uploads';
+
+        let data;
+        try {
+            const response = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: targetPath,
+                ref: branch || 'main'
+            });
+            data = response.data;
+        } catch (err) {
+            if (err.status === 404) {
+                // Folder doesn't exist yet, return empty
+                return res.json([]);
+            }
+            throw err;
+        }
+
+        if (!Array.isArray(data)) {
+            // It's a file, not a directory
+            return res.json([]);
+        }
+
+        const items = data.map(item => ({
+            name: item.name,
+            isDirectory: item.type === 'dir',
+            size: item.size,
+            date: null, // GitHub API doesn't give mtime in simple list
+            type: item.type === 'dir' ? 'folder' : (mime.lookup(item.name) || 'application/octet-stream'),
+            path: dirPath // Relative path for frontend context
+        }));
+
+        // Sort
+        items.sort((a, b) => {
+            if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
+            return a.isDirectory ? -1 : 1;
+        });
+
+        res.json(items);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to list files' });
+    }
+});
+
+// Upload File
+app.post('/api/github/upload', upload.array('files'), async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, folder } = req.body;
+
+    if (!token || !owner || !repo || !req.files) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+        const results = [];
+
+        for (const file of req.files) {
+            const content = fs.readFileSync(file.path, { encoding: 'base64' });
+            const filePath = folder ? `uploads/${folder}/${file.originalname}` : `uploads/${file.originalname}`;
+
+            // Check if file exists to get SHA for update
+            let sha;
+            try {
+                const { data } = await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: filePath,
+                    ref: branch || 'main'
+                });
+                sha = data.sha;
+            } catch (e) { /* File doesn't exist */ }
+
+            await octokit.rest.repos.createOrUpdateFileContents({
+                owner,
+                repo,
+                path: filePath,
+                message: `Upload ${file.originalname}`,
+                content,
+                sha,
+                branch: branch || 'main'
+            });
+
+            // Clean up local temp file
+            fs.unlinkSync(file.path);
+            results.push(file.originalname);
+        }
+
+        res.json({ message: 'Uploaded', files: results });
+    } catch (error) {
+        console.error(error);
+        // Clean up temp files on error
+        req.files.forEach(f => { if (fs.existsSync(f.path)) fs.unlinkSync(f.path) });
+        res.status(500).json({ error: 'Upload failed' });
+    }
+});
+
+// Create Folder (create .keep file)
+app.post('/api/github/create-folder', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, folder, name } = req.body;
+
+    if (!token || !owner || !repo || !name) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+        const newFolderPath = folder ? `uploads/${folder}/${name}` : `uploads/${name}`;
+        const keepFilePath = `${newFolderPath}/.keep`;
+
+        await octokit.rest.repos.createOrUpdateFileContents({
+            owner,
+            repo,
+            path: keepFilePath,
+            message: `Create folder ${name}`,
+            content: Buffer.from('').toString('base64'),
+            branch: branch || 'main'
+        });
+
+        res.json({ message: 'Folder created' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to create folder' });
+    }
+});
+
+// View File Content (Proxy to avoid CORS and Auth issues on frontend)
+app.get('/api/github/view', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, path: filePath } = req.query;
+
+    if (!token || !owner || !repo || !filePath) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+        // If filePath doesn't start with uploads/, add it (unless it's a raw full path request)
+        // Actually, frontend usually sends relative path.
+        const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
+
+        const { data } = await octokit.rest.repos.getContent({
+            owner,
+            repo,
+            path: fullPath,
+            ref: branch || 'main',
+            mediaType: { format: 'raw' } // Get raw content
+        });
+
+        // If it's binary, data might be buffer or string depending on octokit version/config
+        // For 'raw' media type, it usually returns the raw buffer/string.
+
+        // Determine mime type
+        const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+        res.setHeader('Content-Type', mimeType);
+        res.send(data);
+    } catch (error) {
+        console.error(error);
+        res.status(404).send('File not found');
+    }
 });
 
 app.listen(PORT, () => {

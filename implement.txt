@@ -24,7 +24,7 @@ one webpage
 access
     github token
     it will automatically show github username below it with green checkmark if valid else shows red cross
-    user will select github repository name from the list or create new repository
+    user will select github repository name from the list or create new repository (public or private(recommended))
     github branch name (default is main)
     automatically "uploads" folder will be created in the repository
     user will upload files or folders to the "uploads" folder

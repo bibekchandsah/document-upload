@@ -298,6 +298,7 @@ span.breadcrumb-item:hover {
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-direction: column;
 }
 
 .modal-body iframe,
@@ -378,4 +379,102 @@ span.breadcrumb-item:hover {
     padding-left: 15px;
     padding-right: 5px;
     opacity: 1;
+}
+
+/* Login Modal Styles */
+.login-content {
+    max-width: 400px;
+}
+
+.login-desc {
+    color: #666;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.form-group {
+    margin-bottom: 1.2rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+.input-with-status {
+    position: relative;
+}
+
+.status-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+}
+
+.status-icon.valid {
+    color: #10b981; /* Green */
+}
+
+.status-icon.valid::before {
+    content: '\f00c'; /* FontAwesome Check */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+}
+
+.status-icon.invalid {
+    color: #ef4444; /* Red */
+}
+
+.status-icon.invalid::before {
+    content: '\f00d'; /* FontAwesome Times */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+}
+
+.username-display {
+    margin-top: 5px;
+    font-size: 0.85rem;
+    color: #10b981;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.full-width {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 1rem;
+}
+
+.hidden {
+    display: none !important;
 }
