@@ -1,0 +1,54 @@
+1) Expiring access links (valid for limited time)    
+2) Smart Search
+Search by:
+File name
+File type
+Folder name (implemented)
+
+3) display Creation/modification date (too costly)
+4) Create folders inside folders (implemented)
+5) detect same file and folder name in the same folder and ask user to rename the file if same file name is detected (implemented)
+
+6) PWA (Installable App)
+Turn website into:
+Desktop app
+Mobile app (implemented)
+
+7) user will upload all files to the github repository integration
+
+prompt "
+can we add the feature like 
+"
+
+one webpage
+access
+    github token
+    it will automatically show github username below it with green checkmark if valid else shows red cross
+    user will select github repository name from the list or create new repository
+    github branch name (default is main)
+    automatically "uploads" folder will be created in the repository
+    user will upload files or folders to the "uploads" folder
+    
+next time login
+    it will show github username veryifying from last entered github token
+    user will select github repository name from the list or create new repository (by default last selected repository)
+    github branch name (default is main)
+    show "Login" button if github token is valid
+
+
+
+
+
+git init
+git add .
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/bibekchandsah/document-upload.git
+git push -u origin main
+
+
+
+
+git remote add origin https://github.com/bibekchandsah/document-upload.git
+git branch -M main
+git push -u origin main

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Viewer</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-folder-open"></i> My Docs</h2>
+                <button id="createFolderBtn" class="icon-btn" title="New Folder"><i class="fas fa-plus"></i></button>
+            </div>
+            <ul id="folderList" class="folder-list">
+                <!-- Folders will be injected here -->
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div id="breadcrumbs" class="breadcrumbs"></div>
+                <div class="actions">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Search files...">
+                        <button class="icon-btn search-btn"><i class="fas fa-search"></i></button>
+                    </div>
+                    <input type="file" id="fileInput" multiple hidden>
+                    <button id="uploadBtn" class="primary-btn"><i class="fas fa-cloud-upload-alt"></i> Upload</button>
+                </div>
+            </header>
+
+            <div id="fileGrid" class="file-grid">
+                <!-- Files will be injected here -->
+                <div class="empty-state">
+                    <i class="fas fa-folder"></i>
+                    <p>Select a folder to view files</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Document Viewer Modal -->
+    <div id="viewerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="viewerFileName">Document Name</h3>
+                <div class="modal-actions">
+                    <button id="shareBtn" class="icon-btn" title="Share"><i class="fas fa-share-alt"></i></button>
+                    <a id="downloadLink" href="#" class="icon-btn" title="Download"><i class="fas fa-download"></i></a>
+                    <button id="printBtn" class="icon-btn" title="Print"><i class="fas fa-print"></i></button>
+                    <button id="closeViewerBtn" class="icon-btn" title="Close"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="modal-body" id="viewerBody">
+                <!-- Content (Iframe or Image) goes here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+</body>
+
+</html>
