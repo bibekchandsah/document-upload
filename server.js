@@ -104,7 +104,11 @@ app.post('/api/folders', (req, res) => {
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
             res.status(201).json({ message: 'Folder created', name: sanitizedName });
-        } else {
+        } 
+        else if (fs.existsSync(folderPath)) {
+            res.status(500).json({ error: 'Folder already exists' });
+        }
+        else {
             res.status(400).json({ error: 'Folder already exists' });
         }
     } catch (error) {

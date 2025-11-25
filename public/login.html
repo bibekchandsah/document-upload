@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Document Viewer</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body class="login-page">
+    <div class="login-background">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo-container">
+                    <i class="fab fa-github"></i>
+                </div>
+                <h1>Welcome Back</h1>
+                <p class="subtitle">Connect your GitHub account to continue</p>
+            </div>
+
+            <div class="login-body">
+                <div class="form-group">
+                    <label for="githubToken">
+                        <i class="fas fa-key"></i>
+                        GitHub Personal Access Token
+                    </label>
+                    <div class="input-wrapper">
+                        <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxxx" autocomplete="off">
+                        <span id="tokenStatus" class="status-icon"></span>
+                    </div>
+                    <div id="usernameDisplay" class="username-display hidden"></div>
+                </div>
+
+                <div id="repoSection" class="repo-section hidden">
+                    <div class="form-group">
+                        <label for="repoSelect">
+                            <i class="fas fa-folder"></i>
+                            Repository
+                        </label>
+                        <select id="repoSelect">
+                            <option value="" disabled selected>Select a repository...</option>
+                            <option value="new">+ Create New Repository</option>
+                        </select>
+                    </div>
+
+                    <div id="newRepoInput" class="form-group hidden new-repo-section">
+                        <label for="newRepoName">
+                            <i class="fas fa-plus-circle"></i>
+                            New Repository Name
+                        </label>
+                        <input type="text" id="newRepoName" placeholder="my-docs-backup">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="repoPrivate" checked>
+                            <label for="repoPrivate">
+                                <i class="fas fa-lock"></i>
+                                Private Repository (Recommended)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="branchName">
+                            <i class="fas fa-code-branch"></i>
+                            Branch
+                        </label>
+                        <input type="text" id="branchName" value="main" placeholder="main">
+                    </div>
+                </div>
+
+                <button id="loginBtn" class="connect-btn" disabled>
+                    <span class="btn-text">Connect to GitHub</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+
+                <div class="login-footer">
+                    <p class="help-text">
+                        <i class="fas fa-info-circle"></i>
+                        Need help? <a
+                            href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"
+                            target="_blank">Learn how to create a token</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="login.js"></script>
+</body>
+
+</html>
