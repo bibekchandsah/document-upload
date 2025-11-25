@@ -104,7 +104,7 @@ app.post('/api/folders', (req, res) => {
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
             res.status(201).json({ message: 'Folder created', name: sanitizedName });
-        } 
+        }
         else if (fs.existsSync(folderPath)) {
             res.status(500).json({ error: 'Folder already exists' });
         }
@@ -494,13 +494,15 @@ app.get('/api/github/view', async (req, res) => {
             mediaType: { format: 'raw' } // Get raw content
         });
 
-        // If it's binary, data might be buffer or string depending on octokit version/config
-        // For 'raw' media type, it usually returns the raw buffer/string.
-
         // Determine mime type
         const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+
+        // Ensure data is sent as Buffer for binary files
+        const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+
         res.setHeader('Content-Type', mimeType);
-        res.send(data);
+        res.setHeader('Content-Length', buffer.length);
+        res.send(buffer);
     } catch (error) {
         console.error(error);
         res.status(404).send('File not found');

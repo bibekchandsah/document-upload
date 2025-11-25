@@ -501,18 +501,36 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
         .then(blob => {
             console.log('Blob received:', blob.size, 'bytes, type:', blob.type);
             const objectUrl = URL.createObjectURL(blob);
+            console.log('Object URL created:', objectUrl);
 
             if (file.type.includes('image')) {
                 const img = document.createElement('img');
-                img.src = objectUrl;
                 img.style.maxWidth = '100%';
                 img.style.maxHeight = '100%';
-                img.onerror = () => {
-                    console.error('Image failed to load');
-                    viewerBody.innerHTML = `<div class="empty-state"><p style="color:red">Failed to display image</p></div>`;
+                img.style.display = 'block';
+
+                img.onload = () => {
+                    console.log('Image loaded successfully!');
+                    viewerBody.innerHTML = '';
+                    viewerBody.appendChild(img);
                 };
-                viewerBody.innerHTML = '';
-                viewerBody.appendChild(img);
+
+                img.onerror = (e) => {
+                    console.error('Image failed to load:', e);
+                    console.error('Image src:', img.src);
+                    console.error('Blob type:', blob.type);
+                    console.error('Blob size:', blob.size);
+                    viewerBody.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                            <p style="color:red">Failed to display image</p>
+                            <p style="font-size: 0.85rem; color: #666;">Blob size: ${blob.size} bytes</p>
+                            <p style="font-size: 0.85rem; color: #666;">Try downloading the file instead</p>
+                        </div>`;
+                };
+
+                // Set src LAST to ensure handlers are attached
+                img.src = objectUrl;
             } else if (file.type === 'application/pdf') {
                 const iframe = document.createElement('iframe');
                 iframe.src = objectUrl;
