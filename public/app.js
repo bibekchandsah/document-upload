@@ -474,37 +474,49 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
     // Or just let the browser handle it.
     downloadLink.href = fileUrl;
 
-    viewerBody.innerHTML = '';
+    // Show loading state
+    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading preview...</p></div>';
 
     const isDoc = file.name.match(/\.(docx|doc|xlsx|xls|pptx|ppt)$/i);
     const isText = file.name.match(/\.(txt|csv|json|md|js|css|html)$/i);
     const isVideo = file.type.includes('video') || file.name.match(/\.(mp4|webm|ogg)$/i);
 
-    // We need to fetch the content first for some types, or set src for others.
-    // Since our proxy returns the raw file, we can treat it like a normal URL.
-    // BUT, we need to pass the token.
-    // Wait, the proxy uses the token from headers.
-    // We can't set headers on an <img> or <iframe> src.
-    // PROBLEM: The proxy needs the token.
-    // SOLUTION: We can pass the token in the query string for the view endpoint?
-    // Security risk? Yes, but it's a short lived session usually.
-    // Better: Use `fetch` to get the blob and create a local object URL.
+    // Log the request details for debugging
+    console.log('Fetching file:', {
+        url: fileUrl,
+        user: ghUser,
+        repo: ghRepo,
+        branch: ghBranch,
+        path: filePath
+    });
 
     fetch(fileUrl, { headers: { 'Authorization': `Bearer ${ghToken}` } })
         .then(res => {
-            if (!res.ok) throw new Error('Failed to load');
+            console.log('Response status:', res.status, res.statusText);
+            if (!res.ok) {
+                throw new Error(`Failed to load file: ${res.status} ${res.statusText}`);
+            }
             return res.blob();
         })
         .then(blob => {
+            console.log('Blob received:', blob.size, 'bytes, type:', blob.type);
             const objectUrl = URL.createObjectURL(blob);
 
             if (file.type.includes('image')) {
                 const img = document.createElement('img');
                 img.src = objectUrl;
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '100%';
+                img.onerror = () => {
+                    console.error('Image failed to load');
+                    viewerBody.innerHTML = `<div class="empty-state"><p style="color:red">Failed to display image</p></div>`;
+                };
+                viewerBody.innerHTML = '';
                 viewerBody.appendChild(img);
             } else if (file.type === 'application/pdf') {
                 const iframe = document.createElement('iframe');
                 iframe.src = objectUrl;
+                viewerBody.innerHTML = '';
                 viewerBody.appendChild(iframe);
             } else if (isVideo) {
                 const video = document.createElement('video');
@@ -512,6 +524,7 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                 video.controls = true;
                 video.style.maxWidth = '100%';
                 video.style.maxHeight = '100%';
+                viewerBody.innerHTML = '';
                 viewerBody.appendChild(video);
             } else if (isText) {
                 blob.text().then(text => {
@@ -523,6 +536,7 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     pre.style.width = '100%';
                     pre.style.whiteSpace = 'pre-wrap';
                     pre.textContent = text;
+                    viewerBody.innerHTML = '';
                     viewerBody.appendChild(pre);
                 });
             } else if (isDoc) {
@@ -549,8 +563,14 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
             downloadLink.download = file.name;
         })
         .catch(err => {
-            console.error(err);
-            viewerBody.innerHTML = `<p style="color:red">Failed to load content</p>`;
+            console.error('Error loading file:', err);
+            viewerBody.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                    <p style="color: #ef4444; font-weight: 600;">Failed to load file</p>
+                    <p style="font-size: 0.9rem; color: #888; margin-top: 0.5rem;">${err.message}</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 1rem;">Check browser console for details</p>
+                </div>`;
         });
 }
 
