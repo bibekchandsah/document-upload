@@ -486,19 +486,45 @@ app.get('/api/github/view', async (req, res) => {
         // Actually, frontend usually sends relative path.
         const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
 
-        const { data } = await octokit.rest.repos.getContent({
+        // Get file metadata and content
+        const response = await octokit.rest.repos.getContent({
             owner,
             repo,
             path: fullPath,
-            ref: branch || 'main',
-            mediaType: { format: 'raw' } // Get raw content
+            ref: branch || 'main'
+            // Don't use mediaType: raw - it returns corrupted ArrayBuffer
         });
+
+        // Validate it's a file
+        if (response.data.type !== 'file') {
+            return res.status(400).send('Not a file');
+        }
+
+        let buffer;
+
+        // GitHub API limitation: content field only exists for files < 1MB
+        if (response.data.content) {
+            // Small file: decode base64 (GitHub includes newlines - remove them)
+            const base64Content = response.data.content.replace(/\n/g, '');
+            buffer = Buffer.from(base64Content, 'base64');
+        } else if (response.data.download_url) {
+            // Large file (>1MB): fetch from download URL
+            const downloadResponse = await fetch(response.data.download_url, {
+                headers: { 'Authorization': `token ${token}` }
+            });
+
+            if (!downloadResponse.ok) {
+                throw new Error(`Failed to download large file: ${downloadResponse.status}`);
+            }
+
+            const arrayBuffer = await downloadResponse.arrayBuffer();
+            buffer = Buffer.from(arrayBuffer);
+        } else {
+            return res.status(400).send('File content not available');
+        }
 
         // Determine mime type
         const mimeType = mime.lookup(filePath) || 'application/octet-stream';
-
-        // Ensure data is sent as Buffer for binary files
-        const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
 
         res.setHeader('Content-Type', mimeType);
         res.setHeader('Content-Length', buffer.length);
