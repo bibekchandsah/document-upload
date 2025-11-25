@@ -85,12 +85,16 @@ body.login-page {
 }
 
 @keyframes float {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translate(0, 0) scale(1);
     }
+
     33% {
         transform: translate(30px, -30px) scale(1.1);
     }
+
     66% {
         transform: translate(-20px, 20px) scale(0.9);
     }
@@ -118,6 +122,7 @@ body.login-page {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -267,6 +272,7 @@ body.login-page {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -745,6 +751,7 @@ span.breadcrumb-item:hover {
 
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
+
     /* Login Page Mobile */
     body.login-page {
         padding: 0;
@@ -896,5 +903,62 @@ span.breadcrumb-item:hover {
 
     .file-grid {
         grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+}
+
+/* Print Styles */
+@media print {
+
+    /* Hide everything by default */
+    body * {
+        visibility: hidden;
+    }
+
+    /* Show only the modal content */
+    .modal,
+    .modal * {
+        visibility: visible;
+    }
+
+    /* Hide modal UI elements */
+    .modal-header {
+        display: none !important;
+    }
+
+    /* Make modal take full page */
+    .modal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+    }
+
+    .modal-content {
+        width: 100%;
+        height: 100%;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .modal-body {
+        background: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* Ensure images print properly */
+    .modal-body img {
+        max-width: 100%;
+        height: auto;
+        page-break-inside: avoid;
+    }
+
+    /* Ensure PDFs and iframes print properly */
+    .modal-body iframe {
+        width: 100%;
+        height: 100vh;
     }
 }

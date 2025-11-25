@@ -620,6 +620,12 @@ shareBtn.onclick = async () => {
     alert('Sharing is not yet supported in GitHub mode.');
 };
 
+// Print Button
+printBtn.onclick = () => {
+    // Trigger browser's print dialog to print the currently viewed file
+    window.print();
+};
+
 init();
 
 
