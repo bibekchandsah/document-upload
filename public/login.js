@@ -1,4 +1,7 @@
-const API_BASE = 'http://localhost:3000/api';
+// Dynamically determine API base URL based on environment
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000/api'
+    : `${window.location.origin}/api`;
 
 // DOM Elements
 const githubTokenInput = document.getElementById('githubToken');
