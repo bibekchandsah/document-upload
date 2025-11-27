@@ -52,3 +52,8 @@ git push -u origin main
 git remote add origin https://github.com/bibekchandsah/document-upload.git
 git branch -M main
 git push -u origin main
+
+
+
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"

@@ -562,31 +562,33 @@ app.get('/api/share/:username/:token', async (req, res) => {
         const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
         const fileName = path.basename(filePath);
 
-        // Return simple HTML page
+        // Return HTML page with Modal
         const html = `
 <!DOCTYPE html>
 <html>
 <head>
     <title>Shared: ${fileName}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        body { background: #f3f4f6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .container { max-width: 500px; width: 100%; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 2rem; }
-        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #1f2937; }
-        .file-icon { font-size: 3rem; text-align: center; margin: 1.5rem 0; }
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #1f2937; text-align: center; }
+        .file-icon-large { font-size: 3rem; text-align: center; margin: 1.5rem 0; }
         .info { background: #f9fafb; padding: 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.875rem; }
         .info-row { display: flex; justify-content: space-between; padding: 0.5rem 0; }
         .label { color: #6b7280; }
         .value { color: #1f2937; font-weight: 500; }
-        .btn { display: inline-block; background: #2563eb; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 500; text-align: center; transition: background 0.2s; }
+        .btn { display: inline-block; background: #2563eb; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 500; text-align: center; transition: background 0.2s; cursor: pointer; border: none; font-size: 1rem; }
         .btn:hover { background: #1d4ed8; }
         .expires { text-align: center; color: #ef4444; font-size: 0.875rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="file-icon">📄</div>
+        <div class="file-icon-large">📄</div>
         <h1>${fileName}</h1>
         <div class="info">
             <div class="info-row"><span class="label">Repository:</span><span class="value">${owner}/${repo}</span></div>
@@ -594,7 +596,7 @@ app.get('/api/share/:username/:token', async (req, res) => {
             <div class="info-row"><span class="label">Branch:</span><span class="value">${branch}</span></div>
         </div>
         <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem;">
-            <a href="/api/share/${username}/${token}/download" class="btn" target="_blank">View File</a>
+            <button onclick="openViewer()" class="btn">View File</button>
             <a href="/api/share/${username}/${token}/download?download=true" class="btn" style="background: #10b981;">Download</a>
         </div>
         <div style="text-align: center; margin-top: 1rem;">
@@ -602,6 +604,104 @@ app.get('/api/share/:username/:token', async (req, res) => {
         </div>
         <div class="expires">⏰ Expires: ${new Date(linkData.expiresAt).toLocaleString()}</div>
     </div>
+
+    <!-- Document Viewer Modal -->
+    <div id="viewerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="viewerFileName">${fileName}</h3>
+                <div class="modal-actions">
+                    <a id="modalDownloadLink" href="/api/share/${username}/${token}/download?download=true" class="icon-btn" title="Download"><i class="fas fa-download"></i></a>
+                    <button id="printBtn" class="icon-btn" title="Print" onclick="window.print()"><i class="fas fa-print"></i></button>
+                    <button id="closeViewerBtn" class="icon-btn" title="Close" onclick="closeViewer()"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="modal-body" id="viewerBody">
+                <!-- Content (Iframe or Image) goes here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const viewerModal = document.getElementById('viewerModal');
+        const viewerBody = document.getElementById('viewerBody');
+        const fileName = "${fileName}";
+        const downloadUrl = "/api/share/${username}/${token}/download";
+
+        function openViewer() {
+            viewerModal.classList.remove('hidden');
+            viewerBody.innerHTML = '<div style="text-align:center"><i class="fas fa-spinner fa-spin" style="font-size:2rem"></i><p>Loading preview...</p></div>';
+
+            const isDoc = fileName.match(/\\.(docx|doc|xlsx|xls|pptx|ppt)$/i);
+            const isText = fileName.match(/\\.(txt|csv|json|md|js|css|html)$/i);
+            const isVideo = fileName.match(/\\.(mp4|webm|ogg)$/i);
+            const isImage = fileName.match(/\\.(jpg|jpeg|png|gif|webp|svg)$/i);
+            const isPdf = fileName.match(/\\.pdf$/i);
+
+            fetch(downloadUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to load file');
+                    return res.blob();
+                })
+                .then(blob => {
+                    const objectUrl = URL.createObjectURL(blob);
+                    
+                    if (isImage) {
+                        const img = document.createElement('img');
+                        img.src = objectUrl;
+                        viewerBody.innerHTML = '';
+                        viewerBody.appendChild(img);
+                    } else if (isPdf) {
+                        const iframe = document.createElement('iframe');
+                        iframe.src = objectUrl;
+                        viewerBody.innerHTML = '';
+                        viewerBody.appendChild(iframe);
+                    } else if (isVideo) {
+                        const video = document.createElement('video');
+                        video.src = objectUrl;
+                        video.controls = true;
+                        video.style.maxWidth = '100%';
+                        video.style.maxHeight = '100%';
+                        viewerBody.innerHTML = '';
+                        viewerBody.appendChild(video);
+                    } else if (isText) {
+                        blob.text().then(text => {
+                            const pre = document.createElement('pre');
+                            pre.style.padding = '1rem';
+                            pre.style.backgroundColor = '#f8f9fa';
+                            pre.style.overflow = 'auto';
+                            pre.style.height = '100%';
+                            pre.style.width = '100%';
+                            pre.style.whiteSpace = 'pre-wrap';
+                            pre.textContent = text;
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(pre);
+                        });
+                    } else {
+                        viewerBody.innerHTML = \`
+                            <div style="text-align:center">
+                                <i class="fas fa-file-download" style="font-size:3rem; color:#9ca3af"></i>
+                                <p style="margin-top:1rem">Preview not available</p>
+                                <a href="\${downloadUrl}?download=true" class="btn" style="margin-top:1rem">Download File</a>
+                            </div>\`;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    viewerBody.innerHTML = '<p style="color:red">Failed to load file preview</p>';
+                });
+        }
+
+        function closeViewer() {
+            viewerModal.classList.add('hidden');
+            viewerBody.innerHTML = '';
+        }
+
+        // Close on click outside
+        viewerModal.onclick = (e) => {
+            if (e.target === viewerModal) closeViewer();
+        };
+    </script>
 </body>
 </html>`;
 
