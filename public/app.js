@@ -1380,39 +1380,60 @@ async function deleteItem(itemName, isDirectory) {
     }
 }
 
-async function deleteItemAPI(itemName, isDirectory) {
+async function deleteItemAPI(itemName, isDirectory, retries = 5) {
     showProcessing(`Deleting ${isDirectory ? 'folder' : 'file'}...`);
     
-    try {
-        const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
-        const res = await fetch(`${API_BASE}/github/delete`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${ghToken}`
-            },
-            body: JSON.stringify({
-                owner: ghUser,
-                repo: ghRepo,
-                branch: ghBranch,
-                path: itemPath,
-                isDirectory
-            })
-        });
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
+            const res = await fetch(`${API_BASE}/github/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${ghToken}`
+                },
+                body: JSON.stringify({
+                    owner: ghUser,
+                    repo: ghRepo,
+                    branch: ghBranch,
+                    path: itemPath,
+                    isDirectory
+                })
+            });
 
-        if (res.ok) {
-            return true;
-        } else {
-            alert('Failed to delete');
-            return false;
+            if (res.ok) {
+                hideProcessing();
+                return true;
+            } else {
+                console.warn(`Attempt ${attempt}/${retries} failed for delete ${itemName} (Status: ${res.status})`);
+                
+                if (attempt < retries) {
+                    const delay = Math.pow(2, attempt - 1) * 1000;
+                    console.log(`Retrying delete in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    hideProcessing();
+                    alert('Failed to delete after multiple attempts');
+                    return false;
+                }
+            }
+        } catch (err) {
+            console.error(`Delete attempt ${attempt}/${retries} failed:`, err);
+            
+            if (attempt < retries) {
+                const delay = Math.pow(2, attempt - 1) * 1000;
+                console.log(`Network error. Retrying delete in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                hideProcessing();
+                alert('Error deleting item - network issue');
+                return false;
+            }
         }
-    } catch (err) {
-        console.error(err);
-        alert('Error deleting item');
-        return false;
-    } finally {
-        hideProcessing();
     }
+    
+    hideProcessing();
+    return false;
 }
 
 // Rename item
@@ -1432,35 +1453,59 @@ async function renameItem(itemName, isDirectory) {
 
     showProcessing(`Renaming ${isDirectory ? 'folder' : 'file'}...`);
     
-    try {
-        const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
-        const res = await fetch(`${API_BASE}/github/rename`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${ghToken}`
-            },
-            body: JSON.stringify({
-                owner: ghUser,
-                repo: ghRepo,
-                branch: ghBranch,
-                oldPath: itemPath,
-                newName: newName.trim(),
-                isDirectory
-            })
-        });
+    const retries = 5;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
+            const res = await fetch(`${API_BASE}/github/rename`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${ghToken}`
+                },
+                body: JSON.stringify({
+                    owner: ghUser,
+                    repo: ghRepo,
+                    branch: ghBranch,
+                    oldPath: itemPath,
+                    newName: newName.trim(),
+                    isDirectory
+                })
+            });
 
-        if (res.ok) {
-            await loadFiles(currentFolder);
-        } else {
-            alert('Failed to rename');
+            if (res.ok) {
+                hideProcessing();
+                await loadFiles(currentFolder);
+                return;
+            } else {
+                console.warn(`Attempt ${attempt}/${retries} failed for rename ${itemName} (Status: ${res.status})`);
+                
+                if (attempt < retries) {
+                    const delay = Math.pow(2, attempt - 1) * 1000;
+                    console.log(`Retrying rename in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    hideProcessing();
+                    alert('Failed to rename after multiple attempts');
+                    return;
+                }
+            }
+        } catch (err) {
+            console.error(`Rename attempt ${attempt}/${retries} failed:`, err);
+            
+            if (attempt < retries) {
+                const delay = Math.pow(2, attempt - 1) * 1000;
+                console.log(`Network error. Retrying rename in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                hideProcessing();
+                alert('Error renaming item - network issue');
+                return;
+            }
         }
-    } catch (err) {
-        console.error(err);
-        alert('Error renaming item');
-    } finally {
-        hideProcessing();
     }
+    
+    hideProcessing();
 }
 
 // Drag and drop handlers
@@ -1629,49 +1674,149 @@ const folderSelectionModal = document.getElementById('folderSelectionModal');
 const closeFolderSelectionModal = document.getElementById('closeFolderSelectionModal');
 const cancelFolderSelection = document.getElementById('cancelFolderSelection');
 const confirmFolderSelection = document.getElementById('confirmFolderSelection');
-let selectedDestFolder = null;
+let selectedDestFolders = new Set(); // Changed to Set for multiple selection
 
 async function showFolderSelectionModal(operation) {
     folderSelectionOperation = operation;
+    selectedDestFolders.clear(); // Clear previous selections
     const title = document.getElementById('folderSelectionTitle');
-    title.textContent = `Select Destination Folder (${operation === 'move' ? 'Move' : 'Copy'})`;
+    title.textContent = `Select Destination Folders (${operation === 'move' ? 'Move' : 'Copy'})`;
     
-    // Load all folders
-    await renderFolderTree();
-    
+    // Show modal immediately with loading state
     folderSelectionModal.classList.remove('hidden');
+    
+    // Show loading indicator
+    const folderTree = document.getElementById('folderTree');
+    folderTree.innerHTML = '<div style="padding: 2rem; text-align: center;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-color);"></i><p style="margin-top: 1rem; color: #6b7280;">Loading folders...</p></div>';
+    
+    // Update counter
+    updateSelectedFoldersCount();
+    
+    // Load all folders asynchronously
+    await renderFolderTree();
 }
 
 async function renderFolderTree() {
     const folderTree = document.getElementById('folderTree');
-    folderTree.innerHTML = '<div style="padding: 0.5rem; cursor: pointer; hover:background: var(--hover-bg);" data-folder="" class="folder-tree-item"><i class="fas fa-home"></i> Home</div>';
+    folderTree.innerHTML = '';
     
     try {
+        // Add Home folder
+        const homeDiv = document.createElement('div');
+        homeDiv.className = 'folder-tree-item';
+        homeDiv.style.display = 'flex';
+        homeDiv.style.alignItems = 'center';
+        homeDiv.style.gap = '0.5rem';
+        homeDiv.style.padding = '0.5rem';
+        homeDiv.style.cursor = 'pointer';
+        homeDiv.dataset.folder = '';
+        
+        const homeCheckbox = document.createElement('input');
+        homeCheckbox.type = 'checkbox';
+        homeCheckbox.style.cursor = 'pointer';
+        homeCheckbox.onclick = (e) => {
+            e.stopPropagation();
+            toggleDestFolder('');
+        };
+        
+        const homeLabel = document.createElement('span');
+        homeLabel.innerHTML = '<i class="fas fa-home"></i> Home';
+        homeLabel.style.flex = '1';
+        
+        homeDiv.appendChild(homeCheckbox);
+        homeDiv.appendChild(homeLabel);
+        homeDiv.onclick = () => toggleDestFolder('');
+        
+        // Disable if current folder is home
+        if (currentFolder === '') {
+            homeDiv.style.opacity = '0.5';
+            homeDiv.style.cursor = 'not-allowed';
+            homeDiv.style.pointerEvents = 'none';
+            homeCheckbox.disabled = true;
+            homeDiv.title = 'Cannot move/copy to current folder';
+        }
+        
+        folderTree.appendChild(homeDiv);
+        
         // Get all folders recursively
         const folders = await fetchAllFolders();
         folders.forEach(folder => {
             const indent = folder.split('/').length - 1;
             const div = document.createElement('div');
             div.className = 'folder-tree-item';
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            div.style.gap = '0.5rem';
             div.style.paddingLeft = `${indent + 1}rem`;
             div.style.padding = '0.5rem';
             div.style.cursor = 'pointer';
             div.dataset.folder = folder;
-            div.innerHTML = `<i class="fas fa-folder"></i> ${folder.split('/').pop()}`;
-            div.onclick = () => selectDestFolder(folder);
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.style.cursor = 'pointer';
+            checkbox.onclick = (e) => {
+                e.stopPropagation();
+                toggleDestFolder(folder);
+            };
+            
+            const label = document.createElement('span');
+            label.innerHTML = `<i class="fas fa-folder"></i> ${folder.split('/').pop()}`;
+            label.style.flex = '1';
+            
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            div.onclick = () => toggleDestFolder(folder);
+            
+            // Disable if it's the current folder
+            if (folder === currentFolder) {
+                div.style.opacity = '0.5';
+                div.style.cursor = 'not-allowed';
+                div.style.pointerEvents = 'none';
+                checkbox.disabled = true;
+                div.title = 'Cannot move/copy to current folder';
+            }
+            
             folderTree.appendChild(div);
         });
     } catch (err) {
         console.error('Error loading folders:', err);
+        folderTree.innerHTML = '<div style="padding: 1rem; text-align: center; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Failed to load folders</div>';
     }
 }
 
-function selectDestFolder(folder) {
-    selectedDestFolder = folder;
+function toggleDestFolder(folder) {
+    if (selectedDestFolders.has(folder)) {
+        selectedDestFolders.delete(folder);
+    } else {
+        selectedDestFolders.add(folder);
+    }
+    
+    // Update checkboxes
     document.querySelectorAll('.folder-tree-item').forEach(el => {
-        el.style.background = el.dataset.folder === folder ? 'var(--primary-color)' : '';
-        el.style.color = el.dataset.folder === folder ? 'white' : '';
+        const elFolder = el.dataset.folder;
+        const checkbox = el.querySelector('input[type="checkbox"]');
+        if (checkbox && !checkbox.disabled) {
+            checkbox.checked = selectedDestFolders.has(elFolder);
+        }
+        
+        // Highlight selected folders
+        if (selectedDestFolders.has(elFolder)) {
+            el.style.background = 'var(--hover-bg)';
+        } else {
+            el.style.background = '';
+        }
     });
+    
+    updateSelectedFoldersCount();
+}
+
+function updateSelectedFoldersCount() {
+    const countSpan = document.getElementById('selectedFoldersCount');
+    if (countSpan) {
+        const count = selectedDestFolders.size;
+        countSpan.textContent = `${count} folder${count !== 1 ? 's' : ''} selected`;
+    }
 }
 
 async function fetchAllFolders(path = '') {
@@ -1679,14 +1824,25 @@ async function fetchAllFolders(path = '') {
         const items = await fetchGitHubFiles(path);
         const folders = [];
         
+        // Collect all immediate subfolders
+        const subfolderPaths = [];
         for (const item of items) {
             if (item.isDirectory) {
                 const folderPath = path ? `${path}/${item.name}` : item.name;
                 folders.push(folderPath);
-                // Recursively get subfolders
-                const subFolders = await fetchAllFolders(folderPath);
-                folders.push(...subFolders);
+                subfolderPaths.push(folderPath);
             }
+        }
+        
+        // Fetch all subfolders in parallel for better performance
+        if (subfolderPaths.length > 0) {
+            const subfolderPromises = subfolderPaths.map(folderPath => fetchAllFolders(folderPath));
+            const subfolderResults = await Promise.all(subfolderPromises);
+            
+            // Flatten and add all nested folders
+            subfolderResults.forEach(subFolders => {
+                folders.push(...subFolders);
+            });
         }
         
         return folders;
@@ -1698,81 +1854,122 @@ async function fetchAllFolders(path = '') {
 
 closeFolderSelectionModal?.addEventListener('click', () => {
     folderSelectionModal.classList.add('hidden');
-    selectedDestFolder = null;
+    selectedDestFolders.clear();
 });
 
 cancelFolderSelection?.addEventListener('click', () => {
     folderSelectionModal.classList.add('hidden');
-    selectedDestFolder = null;
+    selectedDestFolders.clear();
 });
 
 confirmFolderSelection?.addEventListener('click', async () => {
-    if (selectedDestFolder === null) {
-        alert('Please select a destination folder');
+    if (selectedDestFolders.size === 0) {
+        alert('Please select at least one destination folder');
         return;
     }
     
     folderSelectionModal.classList.add('hidden');
     
     const items = Array.from(selectedFiles);
+    const destFolders = Array.from(selectedDestFolders);
+    const totalOperations = items.length * destFolders.length;
     let successCount = 0;
     
-    showProcessing(`${folderSelectionOperation === 'move' ? 'Moving' : 'Copying'} ${items.length} item(s)...`);
+    showProcessing(`${folderSelectionOperation === 'move' ? 'Moving' : 'Copying'} ${items.length} item(s) to ${destFolders.length} folder(s)...`);
 
     try {
-        for (const itemName of items) {
-            const item = currentFiles.find(f => f.name === itemName);
-            if (item) {
-                hideProcessing();
-                const success = await moveOrCopyItem(itemName, selectedDestFolder, folderSelectionOperation, item.isDirectory);
-                if (success) successCount++;
+        // Process all operations in parallel for speed
+        const operations = [];
+        
+        for (const destFolder of destFolders) {
+            for (const itemName of items) {
+                const item = currentFiles.find(f => f.name === itemName);
+                if (item) {
+                    operations.push(
+                        moveOrCopyItem(itemName, destFolder, folderSelectionOperation, item.isDirectory)
+                            .then(success => {
+                                if (success) successCount++;
+                                return success;
+                            })
+                    );
+                }
             }
         }
+        
+        // Wait for all operations to complete
+        await Promise.all(operations);
 
-        alert(`${folderSelectionOperation === 'move' ? 'Moved' : 'Copied'} ${successCount} of ${items.length} item(s)`);
+        alert(`${folderSelectionOperation === 'move' ? 'Moved' : 'Copied'} ${successCount} of ${totalOperations} item(s) successfully`);
     } finally {
         hideProcessing();
         selectedFiles.clear();
         updateBulkActionsBar();
         await loadFiles(currentFolder);
-        selectedDestFolder = null;
+        selectedDestFolders.clear();
     }
 });
 
-async function moveOrCopyItem(itemName, destFolder, operation, isDirectory) {
+async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retries = 5) {
     showProcessing(`${operation === 'move' ? 'Moving' : 'Copying'} ${isDirectory ? 'folder' : 'file'}...`);
     
-    try {
-        const sourcePath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
-        const res = await fetch(`${API_BASE}/github/move-copy`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${ghToken}`
-            },
-            body: JSON.stringify({
-                owner: ghUser,
-                repo: ghRepo,
-                branch: ghBranch,
-                sourcePath,
-                destFolder,
-                operation,
-                isDirectory
-            })
-        });
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const sourcePath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
+            const res = await fetch(`${API_BASE}/github/move-copy`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${ghToken}`
+                },
+                body: JSON.stringify({
+                    owner: ghUser,
+                    repo: ghRepo,
+                    branch: ghBranch,
+                    sourcePath,
+                    destFolder,
+                    operation,
+                    isDirectory
+                })
+            });
 
-        if (res.ok) {
-            return true;
-        } else {
-            console.error(`Failed to ${operation}`);
-            return false;
+            if (res.ok) {
+                hideProcessing();
+                return true;
+            } else {
+                // If it's not a network error (4xx, 5xx), retry
+                const statusCode = res.status;
+                console.warn(`Attempt ${attempt}/${retries} failed for ${operation} ${itemName} (Status: ${statusCode})`);
+                
+                if (attempt < retries) {
+                    // Exponential backoff: wait 1s, 2s, 4s, 8s
+                    const delay = Math.pow(2, attempt - 1) * 1000;
+                    console.log(`Retrying in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    console.error(`Failed to ${operation} ${itemName} after ${retries} attempts`);
+                    hideProcessing();
+                    return false;
+                }
+            }
+        } catch (err) {
+            // Network error or exception
+            console.error(`Attempt ${attempt}/${retries} failed with error:`, err);
+            
+            if (attempt < retries) {
+                // Exponential backoff: wait 1s, 2s, 4s, 8s
+                const delay = Math.pow(2, attempt - 1) * 1000;
+                console.log(`Network error. Retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                console.error(`Failed to ${operation} ${itemName} after ${retries} attempts due to network error`);
+                hideProcessing();
+                return false;
+            }
         }
-    } catch (err) {
-        console.error(err);
-        return false;
-    } finally {
-        hideProcessing();
     }
+    
+    hideProcessing();
+    return false;
 }
 
 init();

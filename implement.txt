@@ -21,6 +21,8 @@ Mobile app (implemented)
 renaming the file > 1MB fixed
 dragging file supported to any folder (sidebar & self sub folders)
 show processing icon while deleting, renaming, copying, moving
+render (copy & move) folders fast 
+multiple folder selection while moving and copy files paralley
 
 
 1. File Management Operations

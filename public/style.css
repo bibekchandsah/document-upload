@@ -1005,16 +1005,32 @@ span.breadcrumb-item:hover {
     padding: 0.5rem;
     cursor: pointer;
     border-radius: 0.25rem;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, opacity 0.2s;
 }
 
-.folder-tree-item:hover {
+.folder-tree-item:hover:not([style*="pointer-events: none"]) {
     background-color: var(--hover-bg);
+}
+
+.folder-tree-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+}
+
+.folder-tree-item input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .folder-tree-item i {
     margin-right: 0.5rem;
     color: #fbbf24;
+}
+
+.folder-tree-item i.fa-home {
+    color: var(--primary-color);
 }
 
 /* Animated Search Box */
