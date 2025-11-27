@@ -1338,15 +1338,20 @@ document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => 
     showProcessing(`Deleting ${items.length} item(s)...`);
 
     try {
-        for (const itemName of items) {
+        // Process all deletes in parallel for speed
+        const deletePromises = items.map(itemName => {
             const item = currentFiles.find(f => f.name === itemName);
             if (item) {
-                // Temporarily hide processing for each individual delete
-                hideProcessing();
-                const success = await deleteItemAPI(itemName, item.isDirectory);
-                if (success) successCount++;
+                return deleteItemAPI(itemName, item.isDirectory, 5, true) // Skip individual processing indicators
+                    .then(success => {
+                        if (success) successCount++;
+                        return success;
+                    });
             }
-        }
+            return Promise.resolve(false);
+        });
+        
+        await Promise.all(deletePromises);
 
         alert(`Deleted ${successCount} of ${items.length} item(s)`);
     } finally {
@@ -1380,8 +1385,10 @@ async function deleteItem(itemName, isDirectory) {
     }
 }
 
-async function deleteItemAPI(itemName, isDirectory, retries = 5) {
-    showProcessing(`Deleting ${isDirectory ? 'folder' : 'file'}...`);
+async function deleteItemAPI(itemName, isDirectory, retries = 5, skipProcessingIndicator = false) {
+    if (!skipProcessingIndicator) {
+        showProcessing(`Deleting ${isDirectory ? 'folder' : 'file'}...`);
+    }
     
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
@@ -1402,7 +1409,9 @@ async function deleteItemAPI(itemName, isDirectory, retries = 5) {
             });
 
             if (res.ok) {
-                hideProcessing();
+                if (!skipProcessingIndicator) {
+                    hideProcessing();
+                }
                 return true;
             } else {
                 console.warn(`Attempt ${attempt}/${retries} failed for delete ${itemName} (Status: ${res.status})`);
@@ -1412,8 +1421,10 @@ async function deleteItemAPI(itemName, isDirectory, retries = 5) {
                     console.log(`Retrying delete in ${delay}ms...`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 } else {
-                    hideProcessing();
-                    alert('Failed to delete after multiple attempts');
+                    if (!skipProcessingIndicator) {
+                        hideProcessing();
+                        alert('Failed to delete after multiple attempts');
+                    }
                     return false;
                 }
             }
@@ -1425,14 +1436,18 @@ async function deleteItemAPI(itemName, isDirectory, retries = 5) {
                 console.log(`Network error. Retrying delete in ${delay}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-                hideProcessing();
-                alert('Error deleting item - network issue');
+                if (!skipProcessingIndicator) {
+                    hideProcessing();
+                    alert('Error deleting item - network issue');
+                }
                 return false;
             }
         }
     }
     
-    hideProcessing();
+    if (!skipProcessingIndicator) {
+        hideProcessing();
+    }
     return false;
 }
 
@@ -1569,11 +1584,16 @@ async function handleDrop(e, targetFolder) {
                 let successCount = 0;
                 
                 try {
-                    for (const item of items) {
-                        hideProcessing();
-                        const success = await moveOrCopyItem(item.name, targetPath, 'move', item.isDirectory);
-                        if (success) successCount++;
-                    }
+                    // Process all moves in parallel for speed
+                    const movePromises = items.map(item => 
+                        moveOrCopyItem(item.name, targetPath, 'move', item.isDirectory, 5, true) // Skip individual processing indicators
+                            .then(success => {
+                                if (success) successCount++;
+                                return success;
+                            })
+                    );
+                    
+                    await Promise.all(movePromises);
                     
                     alert(`Moved ${successCount} of ${items.length} item(s)`);
                 } finally {
@@ -1634,11 +1654,16 @@ async function handleSidebarDrop(e, targetFolderPath) {
                 let successCount = 0;
                 
                 try {
-                    for (const item of items) {
-                        hideProcessing();
-                        const success = await moveOrCopyItem(item.name, targetFolderPath, 'move', item.isDirectory);
-                        if (success) successCount++;
-                    }
+                    // Process all moves in parallel for speed
+                    const movePromises = items.map(item => 
+                        moveOrCopyItem(item.name, targetFolderPath, 'move', item.isDirectory, 5, true) // Skip individual processing indicators
+                            .then(success => {
+                                if (success) successCount++;
+                                return success;
+                            })
+                    );
+                    
+                    await Promise.all(movePromises);
                     
                     alert(`Moved ${successCount} of ${items.length} item(s)`);
                 } finally {
@@ -1886,7 +1911,7 @@ confirmFolderSelection?.addEventListener('click', async () => {
                 const item = currentFiles.find(f => f.name === itemName);
                 if (item) {
                     operations.push(
-                        moveOrCopyItem(itemName, destFolder, folderSelectionOperation, item.isDirectory)
+                        moveOrCopyItem(itemName, destFolder, folderSelectionOperation, item.isDirectory, 5, true) // Skip individual processing indicators
                             .then(success => {
                                 if (success) successCount++;
                                 return success;
@@ -1909,8 +1934,10 @@ confirmFolderSelection?.addEventListener('click', async () => {
     }
 });
 
-async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retries = 5) {
-    showProcessing(`${operation === 'move' ? 'Moving' : 'Copying'} ${isDirectory ? 'folder' : 'file'}...`);
+async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retries = 5, skipProcessingIndicator = false) {
+    if (!skipProcessingIndicator) {
+        showProcessing(`${operation === 'move' ? 'Moving' : 'Copying'} ${isDirectory ? 'folder' : 'file'}...`);
+    }
     
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
@@ -1933,7 +1960,9 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retr
             });
 
             if (res.ok) {
-                hideProcessing();
+                if (!skipProcessingIndicator) {
+                    hideProcessing();
+                }
                 return true;
             } else {
                 // If it's not a network error (4xx, 5xx), retry
@@ -1947,7 +1976,9 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retr
                     await new Promise(resolve => setTimeout(resolve, delay));
                 } else {
                     console.error(`Failed to ${operation} ${itemName} after ${retries} attempts`);
-                    hideProcessing();
+                    if (!skipProcessingIndicator) {
+                        hideProcessing();
+                    }
                     return false;
                 }
             }
@@ -1962,13 +1993,17 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retr
                 await new Promise(resolve => setTimeout(resolve, delay));
             } else {
                 console.error(`Failed to ${operation} ${itemName} after ${retries} attempts due to network error`);
-                hideProcessing();
+                if (!skipProcessingIndicator) {
+                    hideProcessing();
+                }
                 return false;
             }
         }
     }
     
-    hideProcessing();
+    if (!skipProcessingIndicator) {
+        hideProcessing();
+    }
     return false;
 }
 

@@ -23,6 +23,12 @@ dragging file supported to any folder (sidebar & self sub folders)
 show processing icon while deleting, renaming, copying, moving
 render (copy & move) folders fast 
 multiple folder selection while moving and copy files paralley
+show account token detail (clicking on profile icon)
+ - total token per hour
+ - remaining token
+ - renew time
+
+
 
 
 1. File Management Operations
