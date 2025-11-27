@@ -876,6 +876,55 @@ span.breadcrumb-item:hover {
     display: none !important;
 }
 
+/* Upload Progress Bar */
+.upload-progress {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 2rem 0;
+    box-shadow: var(--shadow);
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.progress-header span {
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.upload-details {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
 
@@ -1346,6 +1395,20 @@ span.breadcrumb-item:hover {
 
     .new-repo-section {
         padding: 0 1rem;
+    }
+
+    /* Upload Progress Bar Mobile */
+    .upload-progress {
+        margin: 0.75rem 1rem 0;
+        padding: 0.75rem;
+    }
+
+    .progress-header span {
+        font-size: 0.8rem;
+    }
+
+    .upload-details {
+        font-size: 0.75rem;
     }
 }
 

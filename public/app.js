@@ -288,10 +288,23 @@ function renderBreadcrumbs(path) {
 }
 
 createFolderBtn.onclick = async () => {
-    const name = prompt('Enter folder name:');
-    if (name) {
-        await createFolder(name);
+    let name = prompt('Enter folder name:');
+    if (!name || name.trim() === '') return;
+    name = name.trim();
+
+    // Check for duplicate folder names
+    const existingFolderNames = currentFiles.filter(item => item.isDirectory === true).map(item => item.name);
+    console.log('Existing folders:', existingFolderNames);
+    console.log('Attempting to create folder:', name);
+    
+    while (existingFolderNames.includes(name)) {
+        alert(`❌ Folder "${name}" already exists!\n\nPlease choose a different name.`);
+        name = prompt('Enter a different folder name:');
+        if (!name || name.trim() === '') return;
+        name = name.trim();
     }
+
+    await createFolder(name);
 };
 
 async function createFolder(name) {
@@ -493,33 +506,136 @@ fileGrid.addEventListener('drop', async (e) => {
 
 async function handleUpload(files) {
     uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+    // GitHub file size limit is 100MB
+    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB in bytes
+    const oversizedFiles = [];
+    const validFiles = [];
+    const duplicateFiles = [];
+    let totalSize = 0;
+
+    // Get existing file names in current folder
+    const existingFileNames = currentFiles.filter(item => item.isDirectory === false).map(item => item.name);
+    console.log('Existing files:', existingFileNames);
+    console.log('Files to upload:', Array.from(files).map(f => f.name));
+
+    // Check file sizes and duplicates
+    for (let file of files) {
+        if (file.size > MAX_FILE_SIZE) {
+            oversizedFiles.push({ name: file.name, size: formatSize(file.size) });
+        } else if (existingFileNames.includes(file.name)) {
+            duplicateFiles.push(file.name);
+        } else {
+            validFiles.push(file);
+            totalSize += file.size;
+        }
+    }
+
+    // Show warning for oversized files
+    if (oversizedFiles.length > 0) {
+        const fileList = oversizedFiles.map(f => `• ${f.name} (${f.size})`).join('\n');
+        const proceed = confirm(
+            `⚠️ Warning: GitHub has a 100MB file size limit!\n\n` +
+            `The following files exceed this limit and will be skipped:\n${fileList}\n\n` +
+            `Continue uploading ${validFiles.length} valid file(s)?`
+        );
+        if (!proceed) {
+            uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload';
+            uploadBtn.disabled = false;
+            return;
+        }
+    }
+
+    // Show warning for duplicate files
+    if (duplicateFiles.length > 0) {
+        const fileList = duplicateFiles.map(f => `• ${f}`).join('\n');
+        alert(
+            `❌ Duplicate Files Detected!\n\n` +
+            `The following files already exist in this folder:\n${fileList}\n\n` +
+            `Please rename these files before uploading.`
+        );
+        uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload';
+        uploadBtn.disabled = false;
+        return;
+    }
+
+    if (validFiles.length === 0) {
+        alert('No valid files to upload. All files exceed the 100MB limit.');
+        uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload';
+        uploadBtn.disabled = false;
+        return;
+    }
+
+    // Show progress UI
+    const progressContainer = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('uploadProgressText');
+    const uploadDetails = document.getElementById('uploadDetails');
+    const cancelBtn = document.getElementById('cancelUploadBtn');
+    
+    let uploadCancelled = false;
+    
+    progressContainer.style.display = 'block';
     uploadBtn.disabled = true;
 
-    try {
-        const formData = new FormData();
-        formData.append('owner', ghUser);
-        formData.append('repo', ghRepo);
-        formData.append('branch', ghBranch);
-        formData.append('folder', currentFolder);
+    // Cancel upload handler
+    const cancelUpload = () => {
+        uploadCancelled = true;
+        progressContainer.style.display = 'none';
+        uploadBtn.disabled = false;
+    };
+    
+    cancelBtn.onclick = cancelUpload;
 
-        for (let file of files) {
+    try {
+        let uploadedCount = 0;
+        const totalFiles = validFiles.length;
+
+        for (let i = 0; i < validFiles.length; i++) {
+            if (uploadCancelled) break;
+
+            const file = validFiles[i];
+            const formData = new FormData();
+            formData.append('owner', ghUser);
+            formData.append('repo', ghRepo);
+            formData.append('branch', ghBranch);
+            formData.append('folder', currentFolder);
             formData.append('files', file);
+
+            // Update progress
+            const progress = ((i + 1) / totalFiles) * 100;
+            progressBar.style.width = progress + '%';
+            progressText.textContent = `Uploading file ${i + 1} of ${totalFiles}...`;
+            uploadDetails.textContent = `${file.name} (${formatSize(file.size)})`;
+
+            const res = await fetch(`${API_BASE}/github/upload`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${ghToken}` },
+                body: formData
+            });
+
+            if (res.ok) {
+                uploadedCount++;
+            } else {
+                console.error(`Failed to upload ${file.name}`);
+            }
         }
 
-        const res = await fetch(`${API_BASE}/github/upload`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${ghToken}` },
-            body: formData
-        });
+        if (!uploadCancelled) {
+            progressText.textContent = `✓ Upload complete! ${uploadedCount} of ${totalFiles} files uploaded`;
+            progressBar.style.width = '100%';
+            uploadDetails.textContent = '';
+            
+            // Hide progress after 2 seconds
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+            }, 2000);
 
-        if (res.ok) {
             await loadFiles(currentFolder);
-        } else {
-            alert('Upload failed');
         }
     } catch (err) {
         console.error(err);
         alert('Error uploading files');
+        progressContainer.style.display = 'none';
     } finally {
         uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload';
         uploadBtn.disabled = false;
@@ -987,6 +1103,62 @@ copyLinkBtn.onclick = () => {
         copyLinkBtn.style.background = '';
     }, 2000);
 };
+
+// QR Code generation
+const qrCodeBtn = document.getElementById('qrCodeBtn');
+const qrCodeContainer = document.getElementById('qrCodeContainer');
+const qrCodeCanvas = document.getElementById('qrCodeCanvas');
+let qrCodeInstance = null;
+
+if (qrCodeBtn) {
+    qrCodeBtn.onclick = () => {
+        const shareUrl = shareLinkInput.value;
+        if (!shareUrl) return;
+
+        // Check if QRCode library is loaded
+        if (typeof QRCode === 'undefined') {
+            console.error('QRCode library not loaded');
+            alert('QR Code feature is temporarily unavailable. Please try again in a moment.');
+            return;
+        }
+
+        if (qrCodeContainer.style.display === 'none') {
+            // Clear previous QR code
+            qrCodeCanvas.innerHTML = '';
+            
+            // Generate and show QR code
+            try {
+                qrCodeInstance = new QRCode(qrCodeCanvas, {
+                    text: shareUrl,
+                    width: 200,
+                    height: 200,
+                    colorDark: '#1f2937',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                
+                // Center the QR code
+                const qrImg = qrCodeCanvas.querySelector('img') || qrCodeCanvas.querySelector('canvas');
+                if (qrImg) {
+                    qrImg.style.display = 'block';
+                    qrImg.style.margin = '0 auto';
+                }
+                
+                qrCodeContainer.style.display = 'block';
+                qrCodeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                qrCodeBtn.title = 'Hide QR Code';
+            } catch (error) {
+                console.error('QR Code generation error:', error);
+                alert('Failed to generate QR code');
+            }
+        } else {
+            // Hide QR code
+            qrCodeContainer.style.display = 'none';
+            qrCodeBtn.innerHTML = '<i class="fas fa-qrcode"></i>';
+            qrCodeBtn.title = 'Show QR Code';
+        }
+    };
+}
 
 // Print Button
 printBtn.onclick = () => {

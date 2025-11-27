@@ -16,6 +16,22 @@ Mobile app (implemented)
 
 7) user will upload all files to the github repository integration
 
+1. File Management Operations ⭐ High Priority
+    - Rename files/folders
+    - Move files between folders (drag & drop)
+    - Copy files to other folders
+    - Delete files/folders with confirmation
+    - Bulk operations (select multiple files for delete/move)
+
+
+- File size warnings before upload (github 100MB)
+- Upload progress indicator (like youtube loading)
+- QR code for share links
+- Lazy loading for large folders
+- Revoke share links manually
+
+
+
 prompt "
 can we add the feature like 
 "
