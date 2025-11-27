@@ -29,6 +29,34 @@ const copyLinkBtn = document.getElementById('copyLinkBtn');
 const expiresAtSpan = document.getElementById('expiresAt');
 const customTimeInput = document.getElementById('customTimeInput');
 const customHours = document.getElementById('customHours');
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+
+// Sidebar toggle functionality
+if (sidebarToggle && sidebar) {
+    // Check if sidebar should start collapsed on mobile
+    if (window.innerWidth <= 425) {
+        sidebar.classList.add('collapsed');
+    }
+    
+    sidebarToggle.addEventListener('click', (e) => {
+        // Don't toggle if clicking on the create folder button
+        if (e.target.closest('#createFolderBtn')) {
+            return;
+        }
+        sidebar.classList.toggle('collapsed');
+        // Save preference
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    });
+
+    // Restore sidebar state from localStorage (only on desktop)
+    if (window.innerWidth > 425) {
+        const savedState = localStorage.getItem('sidebarCollapsed');
+        if (savedState === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+    }
+}
 
 // Show/hide custom time input
 expirationSelect.addEventListener('change', () => {
