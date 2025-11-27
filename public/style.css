@@ -908,6 +908,9 @@ span.breadcrumb-item:hover {
 
 /* Print Styles */
 @media print {
+    @page {
+        margin: 0;
+    }
 
     /* Hide everything by default */
     body * {

@@ -4,6 +4,10 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const mime = require('mime-types');
+const crypto = require('crypto');
+
+// In-memory storage for share links: Map<username, Map<token, linkData>>
+const shareLinks = new Map();
 
 const app = express();
 const PORT = 3000;
@@ -235,51 +239,6 @@ app.get('/api/search', (req, res) => {
     }
 });
 
-// 8. Generate Share Link
-const sharedLinks = {}; // In-memory store: { token: { filePath, expiresAt } }
-const crypto = require('crypto');
-
-app.post('/api/share', (req, res) => {
-    const { path: filePath, duration } = req.body;
-    if (!filePath || !duration) return res.status(400).json({ error: 'Path and duration are required' });
-
-    const token = crypto.randomBytes(16).toString('hex');
-    const expiresAt = Date.now() + (duration * 60 * 1000); // duration in minutes
-
-    sharedLinks[token] = { filePath, expiresAt };
-
-    // Cleanup expired links periodically (optional, but good practice)
-    // For simplicity, we'll check expiration on access.
-
-    const shareUrl = `${req.protocol}://${req.get('host')}/share/${token}`;
-    res.json({ shareUrl, expiresAt });
-});
-
-// 9. Access Shared File
-app.get('/share/:token', (req, res) => {
-    const { token } = req.params;
-    const linkData = sharedLinks[token];
-
-    if (!linkData) {
-        return res.status(404).send('Link not found or expired');
-    }
-
-    if (Date.now() > linkData.expiresAt) {
-        delete sharedLinks[token]; // Cleanup
-        return res.status(410).send('Link has expired');
-    }
-
-    const fullPath = path.join(UPLOADS_DIR, linkData.filePath);
-    if (!fs.existsSync(fullPath)) {
-        return res.status(404).send('File not found');
-    }
-
-    // Serve the file
-    // We can force download or view based on type. Let's try to view.
-
-    res.setHeader('Content-Type', mimeType);
-    fs.createReadStream(fullPath).pipe(res);
-});
 
 // 10. GitHub Integration
 const { Octokit } = require('octokit');
@@ -532,6 +491,188 @@ app.get('/api/github/view', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(404).send('File not found');
+    }
+});
+
+// Share Links - Create
+app.post('/api/share/create', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, path: filePath, expirationHours } = req.body;
+
+    if (!token || !owner || !repo || !filePath || !expirationHours) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        const { Octokit } = require('octokit');
+        const octokit = new Octokit({ auth: token });
+        const { data: userData } = await octokit.rest.users.getAuthenticated();
+        const username = userData.login;
+
+        // Generate secure token
+        const shareToken = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + expirationHours * 60 * 60 * 1000);
+
+        // Store link
+        if (!shareLinks.has(username)) {
+            shareLinks.set(username, new Map());
+        }
+        shareLinks.get(username).set(shareToken, {
+            filePath,
+            owner,
+            repo,
+            branch: branch || 'main',
+            expiresAt,
+            createdAt: new Date(),
+            token: token // Store GitHub token for proxying access
+        });
+
+        const shareUrl = `${req.protocol}://${req.get('host')}/api/share/${username}/${shareToken}`;
+        res.json({ token: shareToken, url: shareUrl, expiresAt: expiresAt.toISOString(), username });
+    } catch (error) {
+        console.error('Error creating share link:', error);
+        res.status(500).json({ error: 'Failed to create share link' });
+    }
+});
+
+// Share Links - Access (Page)
+app.get('/api/share/:username/:token', async (req, res) => {
+    const { username, token } = req.params;
+
+    try {
+        if (!shareLinks.has(username)) {
+            return res.status(404).send('Share link not found');
+        }
+
+        const userLinks = shareLinks.get(username);
+        const linkData = userLinks.get(token);
+
+        if (!linkData) {
+            return res.status(404).send('Share link not found');
+        }
+
+        // Check expiration
+        if (new Date() > new Date(linkData.expiresAt)) {
+            userLinks.delete(token);
+            if (userLinks.size === 0) shareLinks.delete(username);
+            return res.status(410).send('Share link has expired');
+        }
+
+        const { owner, repo, branch, filePath } = linkData;
+        const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
+        const fileName = path.basename(filePath);
+
+        // Return simple HTML page
+        const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shared: ${fileName}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .container { max-width: 500px; width: 100%; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 2rem; }
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #1f2937; }
+        .file-icon { font-size: 3rem; text-align: center; margin: 1.5rem 0; }
+        .info { background: #f9fafb; padding: 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.875rem; }
+        .info-row { display: flex; justify-content: space-between; padding: 0.5rem 0; }
+        .label { color: #6b7280; }
+        .value { color: #1f2937; font-weight: 500; }
+        .btn { display: inline-block; background: #2563eb; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 500; text-align: center; transition: background 0.2s; }
+        .btn:hover { background: #1d4ed8; }
+        .expires { text-align: center; color: #ef4444; font-size: 0.875rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="file-icon">📄</div>
+        <h1>${fileName}</h1>
+        <div class="info">
+            <div class="info-row"><span class="label">Repository:</span><span class="value">${owner}/${repo}</span></div>
+            <div class="info-row"><span class="label">Shared by:</span><span class="value">${username}</span></div>
+            <div class="info-row"><span class="label">Branch:</span><span class="value">${branch}</span></div>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem;">
+            <a href="/api/share/${username}/${token}/download" class="btn" target="_blank">View File</a>
+            <a href="/api/share/${username}/${token}/download?download=true" class="btn" style="background: #10b981;">Download</a>
+        </div>
+        <div style="text-align: center; margin-top: 1rem;">
+            <a href="https://github.com/${owner}/${repo}/blob/${branch}/${fullPath}" style="color: #6b7280; text-decoration: none; font-size: 0.875rem;" target="_blank">View on GitHub (Login Required)</a>
+        </div>
+        <div class="expires">⏰ Expires: ${new Date(linkData.expiresAt).toLocaleString()}</div>
+    </div>
+</body>
+</html>`;
+
+        res.send(html);
+    } catch (error) {
+        console.error('Error accessing share link:', error);
+        res.status(500).send('Error accessing shared file');
+    }
+});
+
+// Share Links - Download/View Proxy
+app.get('/api/share/:username/:token/download', async (req, res) => {
+    const { username, token } = req.params;
+    const isDownload = req.query.download === 'true';
+
+    try {
+        if (!shareLinks.has(username)) return res.status(404).send('Share link not found');
+        const userLinks = shareLinks.get(username);
+        const linkData = userLinks.get(token);
+
+        if (!linkData) return res.status(404).send('Share link not found');
+
+        // Check expiration
+        if (new Date() > new Date(linkData.expiresAt)) {
+            userLinks.delete(token);
+            if (userLinks.size === 0) shareLinks.delete(username);
+            return res.status(410).send('Share link has expired');
+        }
+
+        const { owner, repo, branch, filePath, token: githubToken } = linkData;
+        const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
+
+        const octokit = getOctokit(githubToken);
+
+        // Get file content
+        const response = await octokit.rest.repos.getContent({
+            owner,
+            repo,
+            path: fullPath,
+            ref: branch || 'main'
+        });
+
+        let buffer;
+        if (response.data.content) {
+            const base64Content = response.data.content.replace(/\n/g, '');
+            buffer = Buffer.from(base64Content, 'base64');
+        } else if (response.data.download_url) {
+            const downloadResponse = await fetch(response.data.download_url, {
+                headers: { 'Authorization': `token ${githubToken}` }
+            });
+            if (!downloadResponse.ok) throw new Error('Failed to download file');
+            const arrayBuffer = await downloadResponse.arrayBuffer();
+            buffer = Buffer.from(arrayBuffer);
+        } else {
+            return res.status(400).send('File content not available');
+        }
+
+        const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Length', buffer.length);
+
+        if (isDownload) {
+            res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
+        } else {
+            res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`);
+        }
+
+        res.send(buffer);
+    } catch (error) {
+        console.error('Error proxying shared file:', error);
+        res.status(500).send('Error retrieving file');
     }
 });
 

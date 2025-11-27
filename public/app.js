@@ -18,12 +18,33 @@ const downloadLink = document.getElementById('downloadLink');
 const printBtn = document.getElementById('printBtn');
 const searchInput = document.getElementById('searchInput');
 const shareBtn = document.getElementById('shareBtn');
+const shareModal = document.getElementById('shareModal');
+const closeShareModal = document.getElementById('closeShareModal');
+const expirationSelect = document.getElementById('expirationSelect');
+const generateLinkBtn = document.getElementById('generateLinkBtn');
+const shareForm = document.getElementById('shareForm');
+const shareResult = document.getElementById('shareResult');
+const shareLinkInput = document.getElementById('shareLinkInput');
+const copyLinkBtn = document.getElementById('copyLinkBtn');
+const expiresAtSpan = document.getElementById('expiresAt');
+const customTimeInput = document.getElementById('customTimeInput');
+const customHours = document.getElementById('customHours');
+
+// Show/hide custom time input
+expirationSelect.addEventListener('change', () => {
+    if (expirationSelect.value === 'custom') {
+        customTimeInput.style.display = 'block';
+    } else {
+        customTimeInput.style.display = 'none';
+    }
+});
 
 
 // State
 let currentFolder = ''; // Relative path within 'uploads/'
 let currentFiles = [];
 let searchTimeout;
+let currentViewedFile = null; // Track the currently viewed file for sharing
 let currentViewedFilePath = '';
 
 // Auth State
@@ -455,6 +476,7 @@ async function handleUpload(files) {
 function openViewer(file, updateUrl = true, folderOverride = null) {
     viewerFileName.textContent = file.name;
     viewerModal.classList.remove('hidden');
+    currentViewedFile = { ...file, folder: folderOverride !== null ? folderOverride : currentFolder }; // Track for sharing
 
     const folderToUse = folderOverride !== null ? folderOverride : currentFolder;
 
@@ -608,16 +630,113 @@ viewerModal.onclick = (e) => {
 };
 
 // Share Button (Modified for GitHub)
-shareBtn.onclick = async () => {
-    // Sharing a private GitHub file is tricky.
-    // We can't just give a link.
-    // We would need to generate a public link (e.g. Gist?) or proxy it via our server with a token.
-    // Our existing /api/share endpoint uses in-memory storage of the path.
-    // It serves the file from local disk.
-    // We need to update /api/share to handle GitHub paths and fetch from GitHub using the token (which we need to store or pass).
+// Share Button - Opens share modal
+shareBtn.onclick = () => {
+    if (!currentViewedFile) {
+        alert('Please open a file first');
+        return;
+    }
+    shareModal.classList.remove('hidden');
+    // Reset modal state
+    shareForm.style.display = 'block';
+    shareResult.style.display = 'none';
+};
 
-    // For now, let's disable sharing or show a message that it's not supported yet for GitHub mode.
-    alert('Sharing is not yet supported in GitHub mode.');
+// Close share modal
+closeShareModal.onclick = () => {
+    shareModal.classList.add('hidden');
+};
+
+// Close modal when clicking outside
+shareModal.onclick = (e) => {
+    if (e.target === shareModal) {
+        shareModal.classList.add('hidden');
+    }
+};
+
+// Generate share link
+generateLinkBtn.onclick = async () => {
+    if (!currentViewedFile) return;
+
+    generateLinkBtn.disabled = true;
+    generateLinkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+    try {
+        // Get expiration hours
+        let expirationHours;
+        if (expirationSelect.value === 'custom') {
+            const customValue = parseFloat(customHours.value);
+            const unit = document.getElementById('customUnit').value;
+
+            if (!customValue || customValue <= 0) {
+                alert('Please enter a valid custom duration (must be greater than 0)');
+                return;
+            }
+
+            if (unit === 'minutes') {
+                expirationHours = customValue / 60;
+            } else if (unit === 'days') {
+                expirationHours = customValue * 24;
+            } else {
+                expirationHours = customValue;
+            }
+        } else {
+            expirationHours = parseFloat(expirationSelect.value);
+        }
+
+        const filePath = currentViewedFile.folder
+            ? `${currentViewedFile.folder}/${currentViewedFile.name}`
+            : currentViewedFile.name;
+
+        const res = await fetch(`${API_BASE}/share/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ghToken}`
+            },
+            body: JSON.stringify({
+                owner: ghUser,
+                repo: ghRepo,
+                branch: ghBranch,
+                path: filePath,
+                expirationHours
+            })
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to create share link');
+        }
+
+        const data = await res.json();
+
+        // Show result
+        shareForm.style.display = 'none';
+        shareResult.style.display = 'block';
+        shareLinkInput.value = data.url;
+        expiresAtSpan.textContent = new Date(data.expiresAt).toLocaleString();
+    } catch (error) {
+        console.error(error);
+        alert('Failed to generate share link');
+    } finally {
+        generateLinkBtn.disabled = false;
+        generateLinkBtn.innerHTML = '<i class="fas fa-link"></i> Generate Share Link';
+    }
+};
+
+// Copy link to clipboard
+copyLinkBtn.onclick = () => {
+    shareLinkInput.select();
+    document.execCommand('copy');
+
+    // Visual feedback
+    const originalText = copyLinkBtn.innerHTML;
+    copyLinkBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    copyLinkBtn.style.background = '#10b981';
+
+    setTimeout(() => {
+        copyLinkBtn.innerHTML = originalText;
+        copyLinkBtn.style.background = '';
+    }, 2000);
 };
 
 // Print Button
