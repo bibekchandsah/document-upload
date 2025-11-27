@@ -196,6 +196,62 @@
         </div>
     </div>
 
+    <!-- Rate Limit Modal -->
+    <div id="rateLimitModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 450px; height: auto;">
+            <div class="modal-header">
+                <h3><i class="fas fa-tachometer-alt"></i> GitHub API Rate Limit</h3>
+                <button id="closeRateLimitModal" class="icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 2rem; background: white;">
+                <div id="rateLimitLoading" style="text-align: center; padding: 2rem;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-color);"></i>
+                    <p style="margin-top: 1rem; color: #6b7280;">Loading rate limit data...</p>
+                </div>
+                <div id="rateLimitContent" style="display: none;">
+                    <div class="rate-limit-item">
+                        <div class="rate-limit-label">
+                            <i class="fas fa-clock"></i> Total Tokens per Hour
+                        </div>
+                        <div class="rate-limit-value" id="totalTokens">-</div>
+                    </div>
+                    <div class="rate-limit-item">
+                        <div class="rate-limit-label">
+                            <i class="fas fa-battery-three-quarters"></i> Remaining Tokens
+                        </div>
+                        <div class="rate-limit-value" id="remainingTokens" style="color: #10b981;">-</div>
+                    </div>
+                    <div class="rate-limit-item">
+                        <div class="rate-limit-label">
+                            <i class="fas fa-sync-alt"></i> Resets At
+                        </div>
+                        <div class="rate-limit-value-stacked">
+                            <div id="renewTime" style="font-size: 1rem; font-weight: 600;">-</div>
+                            <div id="renewCountdown" style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">-</div>
+                        </div>
+                    </div>
+                    <div class="rate-limit-progress">
+                        <div class="progress-label">
+                            <span>Usage</span>
+                            <span id="usagePercentage">0%</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="rateLimitProgressBar" class="progress-bar" style="background: linear-gradient(90deg, #10b981, #3b82f6);"></div>
+                        </div>
+                    </div>
+                    <div class="rate-limit-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <span>GitHub API rate limit is <strong>5,000 requests per hour</strong> for authenticated users.</span>
+                    </div>
+                </div>
+                <div id="rateLimitError" style="display: none; text-align: center; padding: 1rem;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ef4444;"></i>
+                    <p style="margin-top: 1rem; color: #6b7280;">Failed to load rate limit data</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- QR Code Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="app.js"></script>

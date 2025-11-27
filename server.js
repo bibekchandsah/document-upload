@@ -47,6 +47,43 @@ const upload = multer({
 
 // --- API Endpoints ---
 
+// GitHub Rate Limit Endpoint
+app.get('/api/github/rate-limit', async (req, res) => {
+    const ghToken = req.headers['x-gh-token'];
+
+    if (!ghToken) {
+        return res.status(401).json({ error: 'GitHub token required' });
+    }
+
+    try {
+        // Use native fetch (available in Node.js 18+)
+        const response = await fetch('https://api.github.com/rate_limit', {
+            headers: {
+                'Authorization': `token ${ghToken}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'User-Agent': 'Document-Viewer-App'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Return core rate limit data
+        res.json({
+            limit: data.resources.core.limit,
+            remaining: data.resources.core.remaining,
+            reset: data.resources.core.reset,
+            used: data.resources.core.used
+        });
+    } catch (error) {
+        console.error('Error fetching rate limit:', error);
+        res.status(500).json({ error: 'Failed to fetch rate limit' });
+    }
+});
+
 // 1. List files and folders (Unified API)
 app.get('/api/files', (req, res) => {
     const folder = req.query.folder || '';

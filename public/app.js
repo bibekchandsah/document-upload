@@ -157,7 +157,118 @@ function displayUserProfile() {
     if (userName && ghUser) {
         userName.textContent = ghUser;
     }
+
+    // Add click handler for profile to show rate limit
+    const userProfile = document.querySelector('.user-profile');
+    if (userProfile) {
+        userProfile.style.cursor = 'pointer';
+        userProfile.addEventListener('click', showRateLimitModal);
+    }
 }
+
+// Show Rate Limit Modal
+function showRateLimitModal() {
+    const modal = document.getElementById('rateLimitModal');
+    const loading = document.getElementById('rateLimitLoading');
+    const content = document.getElementById('rateLimitContent');
+    const error = document.getElementById('rateLimitError');
+
+    // Reset state
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    error.style.display = 'none';
+
+    modal.classList.remove('hidden');
+
+    // Fetch rate limit data
+    fetchRateLimit();
+}
+
+// Fetch GitHub rate limit
+async function fetchRateLimit() {
+    try {
+        const response = await fetch(`${API_BASE}/github/rate-limit`, {
+            headers: {
+                'x-gh-token': ghToken
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch rate limit');
+        }
+
+        const data = await response.json();
+
+        // Update UI
+        document.getElementById('totalTokens').textContent = data.limit.toLocaleString();
+        document.getElementById('remainingTokens').textContent = data.remaining.toLocaleString();
+        
+        // Format reset time
+        const resetDate = new Date(data.reset * 1000);
+        const now = new Date();
+        const diffMs = resetDate - now;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+        
+        // Format time only
+        const timeOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+        const timeStr = resetDate.toLocaleTimeString('en-US', timeOptions);
+        document.getElementById('renewTime').textContent = timeStr;
+        
+        // Format countdown
+        let countdownText = '';
+        if (diffMs > 0) {
+            if (diffMins > 60) {
+                const hours = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                countdownText = `Resets in ${hours}h ${mins}m`;
+            } else if (diffMins > 0) {
+                countdownText = `Resets in ${diffMins}m ${diffSecs}s`;
+            } else {
+                countdownText = `Resets in ${diffSecs}s`;
+            }
+        } else {
+            countdownText = 'Reset available';
+        }
+        document.getElementById('renewCountdown').textContent = countdownText;
+
+        // Calculate usage percentage
+        const used = data.limit - data.remaining;
+        const usagePercent = ((used / data.limit) * 100).toFixed(1);
+        document.getElementById('usagePercentage').textContent = `${usagePercent}%`;
+        document.getElementById('rateLimitProgressBar').style.width = `${usagePercent}%`;
+
+        // Color code based on remaining
+        const remainingElem = document.getElementById('remainingTokens');
+        if (data.remaining < data.limit * 0.1) {
+            remainingElem.style.color = '#ef4444'; // Red
+        } else if (data.remaining < data.limit * 0.3) {
+            remainingElem.style.color = '#f59e0b'; // Orange
+        } else {
+            remainingElem.style.color = '#10b981'; // Green
+        }
+
+        // Show content
+        document.getElementById('rateLimitLoading').style.display = 'none';
+        document.getElementById('rateLimitContent').style.display = 'block';
+    } catch (error) {
+        console.error('Error fetching rate limit:', error);
+        document.getElementById('rateLimitLoading').style.display = 'none';
+        document.getElementById('rateLimitError').style.display = 'block';
+    }
+}
+
+// Close Rate Limit Modal
+document.getElementById('closeRateLimitModal')?.addEventListener('click', () => {
+    document.getElementById('rateLimitModal').classList.add('hidden');
+});
+
+// Close modal on outside click
+document.getElementById('rateLimitModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'rateLimitModal') {
+        document.getElementById('rateLimitModal').classList.add('hidden');
+    }
+});
 
 function logout() {
     localStorage.removeItem('gh_token');
