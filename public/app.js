@@ -554,9 +554,9 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
     // Show loading state
     viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading preview...</p></div>';
 
-    const isDoc = file.name.match(/\.(docx|doc|xlsx|xls|pptx|ppt)$/i);
-    const isText = file.name.match(/\.(txt|csv|json|md|js|css|html)$/i);
-    const isVideo = file.type.includes('video') || file.name.match(/\.(mp4|webm|ogg)$/i);
+    const isDoc = file.name.match(/\.(docx|doc|xlsx|xls|pptx|ppt|csv)$/i);
+    const isText = file.name.match(/\.(txt|json|md|js|css|html)$/i);
+    const isVideo = file.type.includes('video') || file.name.match(/\.(mp4|webm|ogg|mp3)$/i);
 
     // Log the request details for debugging
     console.log('Fetching file:', {
@@ -609,10 +609,39 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                 // Set src LAST to ensure handlers are attached
                 img.src = objectUrl;
             } else if (file.type === 'application/pdf') {
-                const iframe = document.createElement('iframe');
-                iframe.src = objectUrl;
-                viewerBody.innerHTML = '';
-                viewerBody.appendChild(iframe);
+                // Check if mobile device
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+                
+                if (isMobile) {
+                    // Use Google Docs Viewer for mobile devices
+                    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading PDF viewer...</p></div>';
+                    
+                    generateTempShareLink(file, folderToUse)
+                        .then(shareUrl => {
+                            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
+                            const iframe = document.createElement('iframe');
+                            iframe.src = googleViewerUrl;
+                            iframe.style.width = '100%';
+                            iframe.style.height = '100%';
+                            iframe.style.border = 'none';
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(iframe);
+                        })
+                        .catch(err => {
+                            console.error('Failed to load PDF with Google Viewer:', err);
+                            // Fallback to native PDF viewer
+                            const iframe = document.createElement('iframe');
+                            iframe.src = objectUrl;
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(iframe);
+                        });
+                } else {
+                    // Desktop: use native PDF viewer
+                    const iframe = document.createElement('iframe');
+                    iframe.src = objectUrl;
+                    viewerBody.innerHTML = '';
+                    viewerBody.appendChild(iframe);
+                }
             } else if (isVideo) {
                 const video = document.createElement('video');
                 video.src = objectUrl;
@@ -651,16 +680,16 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     // Google Docs Viewer cannot access localhost URLs
                     viewerBody.innerHTML = `
                         <div class="empty-state">
-                            <i class="fas fa-info-circle" style="color: #3b82f6;"></i>
-                            <h3 style="margin-top: 1rem; color: #1f2937;">Document Preview (Localhost)</h3>
-                            <p style="margin-top: 0.5rem; color: #6b7280;">Google Docs Viewer requires a public URL.</p>
-                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.875rem;">This will work automatically when deployed to Render.</p>
-                            <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: center;">
-                                <a href="${objectUrl}" download="${file.name}" class="primary-btn">
-                                    <i class="fas fa-download"></i> Download
+                            <i class="fas fa-info-circle" style="color: #3b82f6; font-size: 2.5rem;"></i>
+                            <h3 style="margin-top: 1rem; color: #1f2937; font-size: 1.1rem;">Document Preview (Localhost)</h3>
+                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.9rem;">Google Docs Viewer requires a public URL.</p>
+                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.8rem;">This will work automatically when deployed to Render.</p>
+                            <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                                <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="padding: 0.6rem 1rem; font-size: 0.9rem;">
+                                    <i class="fas fa-download" style="font-size: 1rem; margin-bottom: 0px;"></i> Download
                                 </a>
-                                <button onclick="window.open('${objectUrl}', '_blank')" class="primary-btn" style="background: #10b981;">
-                                    <i class="fas fa-external-link-alt"></i> Open
+                                <button onclick="window.open('${objectUrl}', '_blank')" class="primary-btn" style="background: #10b981; padding: 0.6rem 1rem; font-size: 0.9rem;">
+                                    <i class="fas fa-external-link-alt" style="font-size: 1rem; margin-bottom: 0px;"></i> Open
                                 </button>
                             </div>
                         </div>`;
@@ -726,12 +755,67 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                 }
             }
             else {
-                viewerBody.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-file-download"></i>
-                        <p>Preview not available</p>
-                        <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="margin-top: 1rem;">Download</a>
-                    </div>`;
+                // For all other file types, try Google Docs Viewer on public server
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    // Localhost: offer download
+                    viewerBody.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-file" style="color: #6b7280; font-size: 2.5rem;"></i>
+                            <h3 style="margin-top: 1rem; color: #1f2937; font-size: 1.1rem;">File Preview (Localhost)</h3>
+                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.9rem;">Preview requires a public URL.</p>
+                            <p style="margin-top: 0.25rem; color: #6b7280; font-size: 0.8rem;">File type: ${file.name.split('.').pop().toUpperCase()}</p>
+                            <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                                <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="padding: 0.6rem 1rem; font-size: 0.9rem;">
+                                    <i class="fas fa-download"></i> Download
+                                </a>
+                                <button onclick="window.open('${objectUrl}', '_blank')" class="primary-btn" style="background: #10b981; padding: 0.6rem 1rem; font-size: 0.9rem;">
+                                    <i class="fas fa-external-link-alt"></i> Open
+                                </button>
+                            </div>
+                        </div>`;
+                } else {
+                    // Public server: try Google Docs Viewer for all file types
+                    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading document viewer...</p></div>';
+                    
+                    generateTempShareLink(file, folderToUse)
+                        .then(shareUrl => {
+                            console.log('Generated share URL for file:', shareUrl);
+                            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
+                            
+                            const iframe = document.createElement('iframe');
+                            iframe.src = googleViewerUrl;
+                            iframe.style.width = '100%';
+                            iframe.style.height = '100%';
+                            iframe.style.border = 'none';
+                            
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(iframe);
+                            
+                            // Add fallback after timeout
+                            setTimeout(() => {
+                                const fallbackDiv = document.createElement('div');
+                                fallbackDiv.style.position = 'absolute';
+                                fallbackDiv.style.bottom = '10px';
+                                fallbackDiv.style.right = '10px';
+                                fallbackDiv.innerHTML = `
+                                    <a href="${shareUrl}" target="_blank" class="primary-btn" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                        <i class="fas fa-external-link-alt"></i> Open in new tab
+                                    </a>`;
+                                viewerBody.style.position = 'relative';
+                                viewerBody.appendChild(fallbackDiv);
+                            }, 3000);
+                        })
+                        .catch(err => {
+                            console.error('Failed to load with Google Viewer:', err);
+                            viewerBody.innerHTML = `
+                                <div class="empty-state">
+                                    <i class="fas fa-file-download"></i>
+                                    <p>Preview not available</p>
+                                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">${err.message}</p>
+                                    <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="margin-top: 1rem;">Download</a>
+                                </div>`;
+                        });
+                }
             }
 
             // Update download link to use the blob

@@ -632,9 +632,9 @@ app.get('/api/share/:username/:token', async (req, res) => {
             viewerModal.classList.remove('hidden');
             viewerBody.innerHTML = '<div style="text-align:center"><i class="fas fa-spinner fa-spin" style="font-size:2rem"></i><p>Loading preview...</p></div>';
 
-            const isDoc = fileName.match(/\\.(docx|doc|xlsx|xls|pptx|ppt)$/i);
-            const isText = fileName.match(/\\.(txt|csv|json|md|js|css|html)$/i);
-            const isVideo = fileName.match(/\\.(mp4|webm|ogg)$/i);
+            const isDoc = fileName.match(/\\.(docx|doc|xlsx|xls|pptx|ppt|csv)$/i);
+            const isText = fileName.match(/\\.(txt|json|md|js|css|html)$/i);
+            const isVideo = fileName.match(/\\.(mp4|webm|ogg|mp3)$/i);
             const isImage = fileName.match(/\\.(jpg|jpeg|png|gif|webp|svg)$/i);
             const isPdf = fileName.match(/\\.pdf$/i);
 
@@ -652,10 +652,27 @@ app.get('/api/share/:username/:token', async (req, res) => {
                         viewerBody.innerHTML = '';
                         viewerBody.appendChild(img);
                     } else if (isPdf) {
-                        const iframe = document.createElement('iframe');
-                        iframe.src = objectUrl;
-                        viewerBody.innerHTML = '';
-                        viewerBody.appendChild(iframe);
+                        // Check if mobile device
+                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+                        
+                        if (isMobile) {
+                            // Use Google Docs Viewer for mobile
+                            const shareUrl = window.location.origin + downloadUrl;
+                            const googleViewerUrl = \`https://docs.google.com/gview?url=\${encodeURIComponent(shareUrl)}&embedded=true\`;
+                            const iframe = document.createElement('iframe');
+                            iframe.src = googleViewerUrl;
+                            iframe.style.width = '100%';
+                            iframe.style.height = '100%';
+                            iframe.style.border = 'none';
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(iframe);
+                        } else {
+                            // Desktop: native PDF viewer
+                            const iframe = document.createElement('iframe');
+                            iframe.src = objectUrl;
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(iframe);
+                        }
                     } else if (isVideo) {
                         const video = document.createElement('video');
                         video.src = objectUrl;
@@ -677,13 +694,62 @@ app.get('/api/share/:username/:token', async (req, res) => {
                             viewerBody.innerHTML = '';
                             viewerBody.appendChild(pre);
                         });
+                    } else if (isDoc) {
+                        // Use Google Docs Viewer for Office documents
+                        const shareUrl = window.location.origin + downloadUrl;
+                        const googleViewerUrl = \`https://docs.google.com/gview?url=\${encodeURIComponent(shareUrl)}&embedded=true\`;
+                        const iframe = document.createElement('iframe');
+                        iframe.src = googleViewerUrl;
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                        iframe.style.border = 'none';
+                        viewerBody.innerHTML = '';
+                        viewerBody.appendChild(iframe);
+                        
+                        // Add fallback link
+                        setTimeout(() => {
+                            const fallbackDiv = document.createElement('div');
+                            fallbackDiv.style.position = 'absolute';
+                            fallbackDiv.style.bottom = '10px';
+                            fallbackDiv.style.right = '10px';
+                            fallbackDiv.innerHTML = \`
+                                <a href="\${downloadUrl}?download=true" class="btn" style="font-size: 0.875rem; padding: 0.5rem 1rem; background: #10b981;">
+                                    <i class="fas fa-download"></i> Download
+                                </a>\`;
+                            viewerBody.style.position = 'relative';
+                            viewerBody.appendChild(fallbackDiv);
+                        }, 3000);
                     } else {
-                        viewerBody.innerHTML = \`
-                            <div style="text-align:center">
-                                <i class="fas fa-file-download" style="font-size:3rem; color:#9ca3af"></i>
-                                <p style="margin-top:1rem">Preview not available</p>
-                                <a href="\${downloadUrl}?download=true" class="btn" style="margin-top:1rem">Download File</a>
-                            </div>\`;
+                        // Try Google Docs Viewer for other file types
+                        const shareUrl = window.location.origin + downloadUrl;
+                        const googleViewerUrl = \`https://docs.google.com/gview?url=\${encodeURIComponent(shareUrl)}&embedded=true\`;
+                        const iframe = document.createElement('iframe');
+                        iframe.src = googleViewerUrl;
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                        iframe.style.border = 'none';
+                        
+                        // Add loading indicator and fallback
+                        viewerBody.innerHTML = '<div style="text-align:center"><i class="fas fa-spinner fa-spin" style="font-size:2rem"></i><p>Loading preview...</p></div>';
+                        
+                        setTimeout(() => {
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(iframe);
+                            
+                            // Add download fallback after timeout
+                            setTimeout(() => {
+                                const fallbackDiv = document.createElement('div');
+                                fallbackDiv.style.position = 'absolute';
+                                fallbackDiv.style.bottom = '10px';
+                                fallbackDiv.style.right = '10px';
+                                fallbackDiv.innerHTML = \`
+                                    <a href="\${downloadUrl}?download=true" class="btn" style="font-size: 0.875rem; padding: 0.5rem 1rem; background: #10b981;">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>\`;
+                                viewerBody.style.position = 'relative';
+                                viewerBody.appendChild(fallbackDiv);
+                            }, 2000);
+                        }, 500);
                     }
                 })
                 .catch(err => {
