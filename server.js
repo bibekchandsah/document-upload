@@ -536,13 +536,16 @@ app.post('/api/github/rename', async (req, res) => {
 
                 const newItemPath = item.path.replace(fullOldPath, fullNewPath);
                 
+                // Clean base64 content (remove newlines)
+                const cleanContent = fileData.content ? fileData.content.replace(/\n/g, '') : '';
+                
                 // Create file in new location
                 await octokit.rest.repos.createOrUpdateFileContents({
                     owner,
                     repo,
                     path: newItemPath,
                     message: `Rename ${oldPath} to ${newName}`,
-                    content: fileData.content,
+                    content: cleanContent,
                     branch: branch || 'main'
                 });
 
@@ -558,12 +561,43 @@ app.post('/api/github/rename', async (req, res) => {
             }
         } else {
             // Rename single file
-            const { data } = await octokit.rest.repos.getContent({
-                owner,
-                repo,
-                path: fullOldPath,
-                ref: branch || 'main'
-            });
+            let fileContent, fileSha;
+            
+            try {
+                // Try to get file using getContent API (works for files < 1MB)
+                const { data } = await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: fullOldPath,
+                    ref: branch || 'main'
+                });
+
+                console.log('File size:', data.size, 'bytes');
+                console.log('Has content:', !!data.content);
+
+                // For large files (>1MB), GitHub doesn't return content
+                if (!data.content && data.size > 1000000) {
+                    console.log('File is large, using blob API');
+                    // Get the blob content for large files
+                    const { data: blobData } = await octokit.rest.git.getBlob({
+                        owner,
+                        repo,
+                        file_sha: data.sha
+                    });
+
+                    fileContent = blobData.content;
+                    fileSha = data.sha;
+                } else if (!data.content) {
+                    return res.status(400).json({ error: 'File content not found' });
+                } else {
+                    // Remove newlines from base64 content
+                    fileContent = data.content.replace(/\n/g, '');
+                    fileSha = data.sha;
+                }
+            } catch (error) {
+                console.error('Error getting file content:', error.message);
+                return res.status(500).json({ error: 'Failed to fetch file content: ' + error.message });
+            }
 
             // Create file with new name
             await octokit.rest.repos.createOrUpdateFileContents({
@@ -571,7 +605,7 @@ app.post('/api/github/rename', async (req, res) => {
                 repo,
                 path: fullNewPath,
                 message: `Rename ${oldPath} to ${newName}`,
-                content: data.content,
+                content: fileContent,
                 branch: branch || 'main'
             });
 
@@ -581,15 +615,16 @@ app.post('/api/github/rename', async (req, res) => {
                 repo,
                 path: fullOldPath,
                 message: `Rename ${oldPath} to ${newName}`,
-                sha: data.sha,
+                sha: fileSha,
                 branch: branch || 'main'
             });
         }
 
         res.json({ message: 'Renamed successfully' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to rename' });
+        console.error('Rename error:', error.message);
+        console.error('Full error:', error);
+        res.status(500).json({ error: 'Failed to rename: ' + error.message });
     }
 });
 
@@ -629,13 +664,16 @@ app.post('/api/github/move-copy', async (req, res) => {
 
                 const newItemPath = item.path.replace(fullSourcePath, fullDestPath);
                 
+                // Clean base64 content (remove newlines)
+                const cleanContent = fileData.content ? fileData.content.replace(/\n/g, '') : '';
+                
                 // Create file in destination
                 await octokit.rest.repos.createOrUpdateFileContents({
                     owner,
                     repo,
                     path: newItemPath,
                     message: `${operation === 'move' ? 'Move' : 'Copy'} ${sourcePath}`,
-                    content: fileData.content,
+                    content: cleanContent,
                     branch: branch || 'main'
                 });
 
@@ -653,12 +691,39 @@ app.post('/api/github/move-copy', async (req, res) => {
             }
         } else {
             // Move/Copy single file
-            const { data } = await octokit.rest.repos.getContent({
-                owner,
-                repo,
-                path: fullSourcePath,
-                ref: branch || 'main'
-            });
+            let fileContent, fileSha;
+            
+            try {
+                // Try to get file using getContent API
+                const { data } = await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: fullSourcePath,
+                    ref: branch || 'main'
+                });
+
+                console.log('Move/Copy file size:', data.size, 'bytes');
+
+                // For large files (>1MB), GitHub doesn't return content
+                if (!data.content && data.size > 1000000) {
+                    console.log('File is large, using blob API for move/copy');
+                    // Get the blob content for large files
+                    const { data: blobData } = await octokit.rest.git.getBlob({
+                        owner,
+                        repo,
+                        file_sha: data.sha
+                    });
+
+                    fileContent = blobData.content;
+                    fileSha = data.sha;
+                } else {
+                    fileContent = data.content ? data.content.replace(/\n/g, '') : '';
+                    fileSha = data.sha;
+                }
+            } catch (error) {
+                console.error('Error getting file for move/copy:', error.message);
+                throw error;
+            }
 
             // Create file in destination
             await octokit.rest.repos.createOrUpdateFileContents({
@@ -666,7 +731,7 @@ app.post('/api/github/move-copy', async (req, res) => {
                 repo,
                 path: fullDestPath,
                 message: `${operation === 'move' ? 'Move' : 'Copy'} ${sourcePath}`,
-                content: data.content,
+                content: fileContent,
                 branch: branch || 'main'
             });
 
@@ -677,7 +742,7 @@ app.post('/api/github/move-copy', async (req, res) => {
                     repo,
                     path: fullSourcePath,
                     message: `Move ${sourcePath}`,
-                    sha: data.sha,
+                    sha: fileSha,
                     branch: branch || 'main'
                 });
             }

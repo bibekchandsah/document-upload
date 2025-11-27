@@ -18,6 +18,10 @@ Mobile app (implemented)
 8) google document viewer support for all types of files (admin & sharing)
 9) github avatar and logout
 10) clean print
+renaming the file > 1MB fixed
+dragging file supported to any folder (sidebar & self sub folders)
+show processing icon while deleting, renaming, copying, moving
+
 
 1. File Management Operations
     - Rename files/folders

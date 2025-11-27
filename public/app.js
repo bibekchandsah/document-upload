@@ -84,6 +84,23 @@ let ghRepo = localStorage.getItem('gh_repo');
 let ghBranch = localStorage.getItem('gh_branch') || 'main';
 let ghAvatar = localStorage.getItem('gh_avatar');
 
+// Processing indicator helpers
+function showProcessing(message = 'Processing...') {
+    const indicator = document.getElementById('processingIndicator');
+    const text = document.getElementById('processingText');
+    if (indicator && text) {
+        text.textContent = message;
+        indicator.classList.add('active');
+    }
+}
+
+function hideProcessing() {
+    const indicator = document.getElementById('processingIndicator');
+    if (indicator) {
+        indicator.classList.remove('active');
+    }
+}
+
 // --- Initialization ---
 async function init() {
     if (!ghToken) {
@@ -217,6 +234,12 @@ function renderSidebarFolders(folders) {
     if (currentFolder === '') homeLi.classList.add('active');
     homeLi.innerHTML = `<i class="fas fa-home"></i> <span>Home</span>`;
     homeLi.onclick = () => selectFolder('');
+    
+    // Add drag and drop for Home folder
+    homeLi.ondragover = (e) => handleSidebarDragOver(e);
+    homeLi.ondragleave = (e) => handleSidebarDragLeave(e);
+    homeLi.ondrop = (e) => handleSidebarDrop(e, '');
+    
     folderList.appendChild(homeLi);
 
     folders.forEach(folder => {
@@ -226,6 +249,12 @@ function renderSidebarFolders(folders) {
         if (currentFolder === folder || currentFolder.startsWith(folder + '/')) li.classList.add('active');
         li.innerHTML = `<i class="fas fa-folder"></i> <span>${folder}</span>`;
         li.onclick = () => selectFolder(folder);
+        
+        // Add drag and drop handlers
+        li.ondragover = (e) => handleSidebarDragOver(e);
+        li.ondragleave = (e) => handleSidebarDragLeave(e);
+        li.ondrop = (e) => handleSidebarDrop(e, folder);
+        
         folderList.appendChild(li);
     });
 }
@@ -1305,19 +1334,27 @@ document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => 
 
     const items = Array.from(selectedFiles);
     let successCount = 0;
+    
+    showProcessing(`Deleting ${items.length} item(s)...`);
 
-    for (const itemName of items) {
-        const item = currentFiles.find(f => f.name === itemName);
-        if (item) {
-            const success = await deleteItemAPI(itemName, item.isDirectory);
-            if (success) successCount++;
+    try {
+        for (const itemName of items) {
+            const item = currentFiles.find(f => f.name === itemName);
+            if (item) {
+                // Temporarily hide processing for each individual delete
+                hideProcessing();
+                const success = await deleteItemAPI(itemName, item.isDirectory);
+                if (success) successCount++;
+            }
         }
-    }
 
-    alert(`Deleted ${successCount} of ${items.length} item(s)`);
-    selectedFiles.clear();
-    updateBulkActionsBar();
-    await loadFiles(currentFolder);
+        alert(`Deleted ${successCount} of ${items.length} item(s)`);
+    } finally {
+        hideProcessing();
+        selectedFiles.clear();
+        updateBulkActionsBar();
+        await loadFiles(currentFolder);
+    }
 });
 
 document.getElementById('bulkMoveBtn')?.addEventListener('click', () => {
@@ -1344,6 +1381,8 @@ async function deleteItem(itemName, isDirectory) {
 }
 
 async function deleteItemAPI(itemName, isDirectory) {
+    showProcessing(`Deleting ${isDirectory ? 'folder' : 'file'}...`);
+    
     try {
         const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
         const res = await fetch(`${API_BASE}/github/delete`, {
@@ -1371,6 +1410,8 @@ async function deleteItemAPI(itemName, isDirectory) {
         console.error(err);
         alert('Error deleting item');
         return false;
+    } finally {
+        hideProcessing();
     }
 }
 
@@ -1389,6 +1430,8 @@ async function renameItem(itemName, isDirectory) {
         return;
     }
 
+    showProcessing(`Renaming ${isDirectory ? 'folder' : 'file'}...`);
+    
     try {
         const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
         const res = await fetch(`${API_BASE}/github/rename`, {
@@ -1415,13 +1458,35 @@ async function renameItem(itemName, isDirectory) {
     } catch (err) {
         console.error(err);
         alert('Error renaming item');
+    } finally {
+        hideProcessing();
     }
 }
 
 // Drag and drop handlers
 function handleDragStart(e, item) {
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', JSON.stringify({ name: item.name, isDirectory: item.isDirectory }));
+    
+    // Check if this item is part of a selection
+    if (selectedFiles.has(item.name)) {
+        // Dragging multiple selected items
+        const selectedItems = Array.from(selectedFiles).map(name => {
+            const fileItem = currentFiles.find(f => f.name === name);
+            return { name, isDirectory: fileItem ? fileItem.isDirectory : false };
+        });
+        e.dataTransfer.setData('text/plain', JSON.stringify({ 
+            multiple: true,
+            items: selectedItems
+        }));
+    } else {
+        // Dragging single item
+        e.dataTransfer.setData('text/plain', JSON.stringify({ 
+            multiple: false,
+            name: item.name, 
+            isDirectory: item.isDirectory 
+        }));
+    }
+    
     e.currentTarget.classList.add('dragging');
 }
 
@@ -1445,19 +1510,116 @@ async function handleDrop(e, targetFolder) {
     
     try {
         const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-        const sourceName = data.name;
-        const isDirectory = data.isDirectory;
-        
-        // Don't allow dropping on self
-        if (sourceName === targetFolder.name) return;
-        
         const targetPath = currentFolder ? `${currentFolder}/${targetFolder.name}` : targetFolder.name;
         
-        if (confirm(`Move "${sourceName}" to "${targetFolder.name}"?`)) {
-            await moveOrCopyItem(sourceName, targetPath, 'move', isDirectory);
+        if (data.multiple) {
+            // Moving multiple selected items
+            const items = data.items;
+            
+            // Don't allow dropping on any of the selected items
+            if (items.some(item => item.name === targetFolder.name)) return;
+            
+            if (confirm(`Move ${items.length} item(s) to "${targetFolder.name}"?`)) {
+                showProcessing(`Moving ${items.length} item(s)...`);
+                let successCount = 0;
+                
+                try {
+                    for (const item of items) {
+                        hideProcessing();
+                        const success = await moveOrCopyItem(item.name, targetPath, 'move', item.isDirectory);
+                        if (success) successCount++;
+                    }
+                    
+                    alert(`Moved ${successCount} of ${items.length} item(s)`);
+                } finally {
+                    hideProcessing();
+                    selectedFiles.clear();
+                    updateBulkActionsBar();
+                    await loadFiles(currentFolder);
+                }
+            }
+        } else {
+            // Moving single item
+            const sourceName = data.name;
+            const isDirectory = data.isDirectory;
+            
+            // Don't allow dropping on self
+            if (sourceName === targetFolder.name) return;
+            
+            if (confirm(`Move "${sourceName}" to "${targetFolder.name}"?`)) {
+                const success = await moveOrCopyItem(sourceName, targetPath, 'move', isDirectory);
+                if (success) {
+                    await loadFiles(currentFolder);
+                }
+            }
         }
     } catch (err) {
         console.error('Drop error:', err);
+    }
+}
+
+// Sidebar drag and drop handlers
+function handleSidebarDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.style.background = 'var(--primary-color)';
+    e.currentTarget.style.color = 'white';
+}
+
+function handleSidebarDragLeave(e) {
+    e.currentTarget.style.background = '';
+    e.currentTarget.style.color = '';
+}
+
+async function handleSidebarDrop(e, targetFolderPath) {
+    e.preventDefault();
+    e.currentTarget.style.background = '';
+    e.currentTarget.style.color = '';
+    
+    try {
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        
+        if (data.multiple) {
+            // Moving multiple selected items
+            const items = data.items;
+            const targetName = targetFolderPath === '' ? 'Home' : targetFolderPath.split('/').pop();
+            
+            if (confirm(`Move ${items.length} item(s) to "${targetName}"?`)) {
+                showProcessing(`Moving ${items.length} item(s)...`);
+                let successCount = 0;
+                
+                try {
+                    for (const item of items) {
+                        hideProcessing();
+                        const success = await moveOrCopyItem(item.name, targetFolderPath, 'move', item.isDirectory);
+                        if (success) successCount++;
+                    }
+                    
+                    alert(`Moved ${successCount} of ${items.length} item(s)`);
+                } finally {
+                    hideProcessing();
+                    selectedFiles.clear();
+                    updateBulkActionsBar();
+                    await loadFiles(currentFolder);
+                    await loadSidebarFolders();
+                }
+            }
+        } else {
+            // Moving single item
+            const sourceName = data.name;
+            const isDirectory = data.isDirectory;
+            const targetName = targetFolderPath === '' ? 'Home' : targetFolderPath.split('/').pop();
+            
+            if (confirm(`Move "${sourceName}" to "${targetName}"?`)) {
+                const success = await moveOrCopyItem(sourceName, targetFolderPath, 'move', isDirectory);
+                if (success) {
+                    await loadFiles(currentFolder);
+                    await loadSidebarFolders();
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Sidebar drop error:', err);
     }
 }
 
@@ -1554,23 +1716,32 @@ confirmFolderSelection?.addEventListener('click', async () => {
     
     const items = Array.from(selectedFiles);
     let successCount = 0;
+    
+    showProcessing(`${folderSelectionOperation === 'move' ? 'Moving' : 'Copying'} ${items.length} item(s)...`);
 
-    for (const itemName of items) {
-        const item = currentFiles.find(f => f.name === itemName);
-        if (item) {
-            const success = await moveOrCopyItem(itemName, selectedDestFolder, folderSelectionOperation, item.isDirectory);
-            if (success) successCount++;
+    try {
+        for (const itemName of items) {
+            const item = currentFiles.find(f => f.name === itemName);
+            if (item) {
+                hideProcessing();
+                const success = await moveOrCopyItem(itemName, selectedDestFolder, folderSelectionOperation, item.isDirectory);
+                if (success) successCount++;
+            }
         }
-    }
 
-    alert(`${folderSelectionOperation === 'move' ? 'Moved' : 'Copied'} ${successCount} of ${items.length} item(s)`);
-    selectedFiles.clear();
-    updateBulkActionsBar();
-    await loadFiles(currentFolder);
-    selectedDestFolder = null;
+        alert(`${folderSelectionOperation === 'move' ? 'Moved' : 'Copied'} ${successCount} of ${items.length} item(s)`);
+    } finally {
+        hideProcessing();
+        selectedFiles.clear();
+        updateBulkActionsBar();
+        await loadFiles(currentFolder);
+        selectedDestFolder = null;
+    }
 });
 
 async function moveOrCopyItem(itemName, destFolder, operation, isDirectory) {
+    showProcessing(`${operation === 'move' ? 'Moving' : 'Copying'} ${isDirectory ? 'folder' : 'file'}...`);
+    
     try {
         const sourcePath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
         const res = await fetch(`${API_BASE}/github/move-copy`, {
@@ -1599,6 +1770,8 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory) {
     } catch (err) {
         console.error(err);
         return false;
+    } finally {
+        hideProcessing();
     }
 }
 
