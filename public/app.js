@@ -38,7 +38,7 @@ if (sidebarToggle && sidebar) {
     if (window.innerWidth <= 425) {
         sidebar.classList.add('collapsed');
     }
-    
+
     sidebarToggle.addEventListener('click', (e) => {
         // Don't toggle if clicking on the create folder button
         if (e.target.closest('#createFolderBtn')) {
@@ -634,17 +634,98 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     viewerBody.innerHTML = '';
                     viewerBody.appendChild(pre);
                 });
+                // } else if (isDoc) {
+                //     // Google Viewer needs a PUBLIC URL. It won't work with our proxy or blob.
+                //     // We can't view Office docs unless the repo is public and we use the raw.githubusercontent link.
+                //     // Fallback to download.
+                //     viewerBody.innerHTML = `
+                //         <div class="empty-state">
+                //             <i class="fas fa-file-word"></i>
+                //             <p>Preview not available for private files</p>
+                //             <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="margin-top: 1rem;">Download</a>
+                //         </div>`;
+                // } 
             } else if (isDoc) {
-                // Google Viewer needs a PUBLIC URL. It won't work with our proxy or blob.
-                // We can't view Office docs unless the repo is public and we use the raw.githubusercontent link.
-                // Fallback to download.
-                viewerBody.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-file-word"></i>
-                        <p>Preview not available for private files</p>
-                        <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="margin-top: 1rem;">Download</a>
-                    </div>`;
-            } else {
+                // Check if running on localhost
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    // Google Docs Viewer cannot access localhost URLs
+                    viewerBody.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-info-circle" style="color: #3b82f6;"></i>
+                            <h3 style="margin-top: 1rem; color: #1f2937;">Document Preview (Localhost)</h3>
+                            <p style="margin-top: 0.5rem; color: #6b7280;">Google Docs Viewer requires a public URL.</p>
+                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.875rem;">This will work automatically when deployed to Render.</p>
+                            <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: center;">
+                                <a href="${objectUrl}" download="${file.name}" class="primary-btn">
+                                    <i class="fas fa-download"></i> Download
+                                </a>
+                                <button onclick="window.open('${objectUrl}', '_blank')" class="primary-btn" style="background: #10b981;">
+                                    <i class="fas fa-external-link-alt"></i> Open
+                                </button>
+                            </div>
+                        </div>`;
+                } else {
+                    // For Office documents on public server, generate temporary share link and use Google Docs Viewer
+                    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading document viewer...</p></div>';
+                    generateTempShareLink(file, folderToUse)
+                        .then(shareUrl => {
+                            console.log('Generated share URL:', shareUrl);
+                            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
+                            console.log('Google Viewer URL:', googleViewerUrl);
+                            
+                            const iframe = document.createElement('iframe');
+                            iframe.src = googleViewerUrl;
+                            iframe.style.width = '100%';
+                            iframe.style.height = '100%';
+                            iframe.style.border = 'none';
+                            
+                            // Add error handler for iframe
+                            iframe.onerror = () => {
+                                console.error('Iframe failed to load');
+                                viewerBody.innerHTML = `
+                                    <div class="empty-state">
+                                        <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                                        <p>Failed to load document viewer</p>
+                                        <a href="${shareUrl}" target="_blank" class="primary-btn" style="margin-top: 1rem;">
+                                            <i class="fas fa-external-link-alt"></i> Open in New Tab
+                                        </a>
+                                    </div>`;
+                            };
+                            
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(iframe);
+                            
+                            // Add timeout fallback
+                            setTimeout(() => {
+                                if (viewerBody.querySelector('iframe') && viewerBody.querySelector('iframe').src === googleViewerUrl) {
+                                    // Check if iframe loaded successfully by checking if there's content
+                                    // If Google Docs Viewer fails silently, offer alternative
+                                    const fallbackDiv = document.createElement('div');
+                                    fallbackDiv.style.position = 'absolute';
+                                    fallbackDiv.style.bottom = '10px';
+                                    fallbackDiv.style.right = '10px';
+                                    fallbackDiv.innerHTML = `
+                                        <a href="${shareUrl}" target="_blank" class="primary-btn" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                            <i class="fas fa-external-link-alt"></i> Having trouble? Open in new tab
+                                        </a>`;
+                                    viewerBody.style.position = 'relative';
+                                    viewerBody.appendChild(fallbackDiv);
+                                }
+                            }, 3000);
+                        })
+                        .catch(err => {
+                            console.error('Failed to generate share link:', err);
+                            viewerBody.innerHTML = `
+                                <div class="empty-state">
+                                    <i class="fas fa-file-word"></i>
+                                    <p>Failed to load document preview</p>
+                                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">${err.message}</p>
+                                    <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="margin-top: 1rem;">Download</a>
+                                </div>`;
+                        });
+                }
+            }
+            else {
                 viewerBody.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-file-download"></i>
@@ -777,6 +858,35 @@ generateLinkBtn.onclick = async () => {
         generateLinkBtn.innerHTML = '<i class="fas fa-link"></i> Generate Share Link';
     }
 };
+
+// Helper function to generate temporary share link for Google Docs Viewer
+async function generateTempShareLink(file, folder) {
+    const filePath = folder ? `${folder}/${file.name}` : file.name;
+    
+    const res = await fetch(`${API_BASE}/share/create`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ghToken}`
+        },
+        body: JSON.stringify({
+            owner: ghUser,
+            repo: ghRepo,
+            branch: ghBranch,
+            path: filePath,
+            expirationHours: 0.25 // 15 minutes for preview
+        })
+    });
+    
+    if (!res.ok) {
+        throw new Error('Failed to create share link');
+    }
+    
+    const data = await res.json();
+    // Return the download URL (without download=true parameter for inline viewing)
+    return data.url + '/download';
+}
+
 
 // Copy link to clipboard
 copyLinkBtn.onclick = () => {

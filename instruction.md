@@ -149,4 +149,4 @@ Code must be production-ready, clean, and fully functional.**
 
 
 https://docs.google.com/gview?url=http://localhost:3000/ynnus/COM22000995.pdf&embedded=true
-https://docs.google.com/gview?url=https://document-upload-k047.onrender.com/index.html?folder=test%20upload%2Ftest%20upload&file=Paper-Image-Colorization.pdf&embedded=true
+https://docs.google.com/gview?url=https://document-upload-k047.onrender.com/index.html?folder=test%20upload&file=project_report_7th%20(1).docx&embedded=true
