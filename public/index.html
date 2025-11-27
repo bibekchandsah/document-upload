@@ -172,23 +172,23 @@
 
     <!-- Folder Selection Modal (for Move/Copy) -->
     <div id="folderSelectionModal" class="modal hidden">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content folder-selection-modal">
             <div class="modal-header">
-                <h3 id="folderSelectionTitle">Select Destination Folder</h3>
+                <h3 id="folderSelectionTitle"><i class="fas fa-folder-open"></i> Select Destination Folder</h3>
                 <button id="closeFolderSelectionModal" class="icon-btn"><i class="fas fa-times"></i></button>
             </div>
-            <div class="modal-body" style="padding: 1.5rem;">
-                <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 0.375rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="fas fa-info-circle" style="color: #3b82f6;"></i>
-                    <span style="font-size: 0.875rem; color: #1e40af;">Select multiple folders to copy/move items to all of them at once</span>
+            <div class="modal-body folder-selection-body">
+                <div class="info-banner">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Select multiple folders to copy/move items to all of them at once</span>
                 </div>
-                <div id="folderTree" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 0.375rem; padding: 1rem;">
+                <div id="folderTree" class="folder-tree-container">
                     <!-- Folder tree will be rendered here -->
                 </div>
-                <div style="margin-top: 1rem; display: flex; align-items: center; justify-content: space-between;">
-                    <span id="selectedFoldersCount" style="font-size: 0.875rem; color: #6b7280;">0 folders selected</span>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button id="cancelFolderSelection" class="primary-btn" style="background: #6b7280;">Cancel</button>
+                <div class="folder-selection-footer">
+                    <span id="selectedFoldersCount" class="selection-count-text">0 folders selected</span>
+                    <div class="folder-selection-actions">
+                        <button id="cancelFolderSelection" class="secondary-btn">Cancel</button>
                         <button id="confirmFolderSelection" class="primary-btn">Confirm</button>
                     </div>
                 </div>
