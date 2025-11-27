@@ -1,4 +1,4 @@
-1) Expiring access links (valid for limited time)    
+1) Expiring access links (valid for limited time)  (custom minute, hour, day duration)  
 2) Smart Search
 Search by:
 File name
@@ -15,8 +15,11 @@ Desktop app
 Mobile app (implemented)
 
 7) user will upload all files to the github repository integration
+8) google document viewer support for all types of files (admin & sharing)
+9) github avatar and logout
+10) clean print
 
-1. File Management Operations ⭐ High Priority
+1. File Management Operations
     - Rename files/folders
     - Move files between folders (drag & drop)
     - Copy files to other folders

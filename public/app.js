@@ -74,6 +74,8 @@ let currentFiles = [];
 let searchTimeout;
 let currentViewedFile = null; // Track the currently viewed file for sharing
 let currentViewedFilePath = '';
+let selectedFiles = new Set(); // Track selected files for bulk operations
+let selectionMode = false; // Track if we're in selection mode
 
 // Auth State
 let ghToken = localStorage.getItem('gh_token');
@@ -378,30 +380,92 @@ function renderFiles(items) {
     items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'file-card';
+        card.dataset.itemName = item.name;
+        card.dataset.isDirectory = item.isDirectory;
+        
+        // Make card draggable
+        card.draggable = true;
+        card.ondragstart = (e) => handleDragStart(e, item);
+        card.ondragend = (e) => handleDragEnd(e);
+        
+        // Allow drop on folders
+        if (item.isDirectory) {
+            card.ondragover = (e) => handleDragOver(e);
+            card.ondragleave = (e) => handleDragLeave(e);
+            card.ondrop = (e) => handleDrop(e, item);
+        }
+
+        // Add checkbox for selection
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'file-card-checkbox';
+        checkbox.checked = selectedFiles.has(item.name);
+        checkbox.onclick = (e) => {
+            e.stopPropagation();
+            console.log('Checkbox clicked for:', item.name);
+            toggleFileSelection(item.name);
+        };
+        card.appendChild(checkbox);
+
+        // Add action buttons
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'file-card-actions';
+        actionsDiv.innerHTML = `
+            <button class="file-action-btn" onclick="event.stopPropagation(); renameItem('${item.name}', ${item.isDirectory})" title="Rename">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button class="file-action-btn delete" onclick="event.stopPropagation(); deleteItem('${item.name}', ${item.isDirectory})" title="Delete">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        card.appendChild(actionsDiv);
+
+        // Create content elements
+        const fileIcon = document.createElement('i');
+        const fileName = document.createElement('div');
+        fileName.className = 'file-name';
+        fileName.title = item.name;
+        fileName.textContent = item.name;
+        
+        const fileMeta = document.createElement('div');
+        fileMeta.className = 'file-meta';
 
         if (item.isDirectory) {
-            card.innerHTML = `
-                <i class="file-icon fas fa-folder" style="color: #fbbf24;"></i>
-                <div class="file-name" title="${item.name}">${item.name}</div>
-                <div class="file-meta">Folder</div>
-            `;
+            fileIcon.className = 'file-icon fas fa-folder';
+            fileIcon.style.color = '#fbbf24';
+            fileMeta.textContent = 'Folder';
+            
+            card.appendChild(fileIcon);
+            card.appendChild(fileName);
+            card.appendChild(fileMeta);
+            
             // Navigate into folder
             const newPath = currentFolder ? `${currentFolder}/${item.name}` : item.name;
-            card.onclick = () => selectFolder(newPath);
+            card.onclick = (e) => {
+                if (!e.target.closest('.file-card-checkbox') && !e.target.closest('.file-card-actions')) {
+                    selectFolder(newPath);
+                }
+            };
         } else {
+            fileIcon.className = 'file-icon ' + getFileIconClass(item.type);
+            
             const itemFolder = item.path !== undefined ? item.path : currentFolder;
-            let metaHtml = formatSize(item.size);
+            let metaText = formatSize(item.size);
             if (item.path !== undefined && item.path !== currentFolder) {
-                metaHtml += `<br><span style="font-size:0.7rem; color:#888;">${item.path || 'Home'}</span>`;
+                fileMeta.innerHTML = metaText + `<br><span style="font-size:0.7rem; color:#888;">${item.path || 'Home'}</span>`;
+            } else {
+                fileMeta.textContent = metaText;
             }
+            
+            card.appendChild(fileIcon);
+            card.appendChild(fileName);
+            card.appendChild(fileMeta);
 
-            card.innerHTML = `
-                <i class="file-icon ${getFileIconClass(item.type)}"></i>
-                <div class="file-name" title="${item.name}">${item.name}</div>
-                <div class="file-meta">${metaHtml}</div>
-            `;
-
-            card.onclick = () => openViewer(item, true, itemFolder);
+            card.onclick = (e) => {
+                if (!e.target.closest('.file-card-checkbox') && !e.target.closest('.file-card-actions')) {
+                    openViewer(item, true, itemFolder);
+                }
+            };
         }
 
         fileGrid.appendChild(card);
@@ -1165,6 +1229,378 @@ printBtn.onclick = () => {
     // Trigger browser's print dialog to print the currently viewed file
     window.print();
 };
+
+// ====================
+// FILE MANAGEMENT OPERATIONS
+// ====================
+
+// Toggle file selection
+function toggleFileSelection(itemName) {
+    if (selectedFiles.has(itemName)) {
+        selectedFiles.delete(itemName);
+    } else {
+        selectedFiles.add(itemName);
+    }
+    console.log('Selected files:', Array.from(selectedFiles));
+    console.log('Selection count:', selectedFiles.size);
+    updateBulkActionsBar();
+    updateCheckboxes();
+}
+
+// Update bulk actions bar visibility
+function updateBulkActionsBar() {
+    const bulkActionsBar = document.getElementById('bulkActionsBar');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    console.log('updateBulkActionsBar called, selectedFiles.size:', selectedFiles.size);
+    console.log('bulkActionsBar element:', bulkActionsBar);
+    
+    if (selectedFiles.size > 0) {
+        selectionMode = true;
+        bulkActionsBar.classList.add('active');
+        selectedCount.textContent = selectedFiles.size;
+        console.log('Showing bulk actions bar');
+    } else {
+        selectionMode = false;
+        bulkActionsBar.classList.remove('active');
+        console.log('Hiding bulk actions bar');
+    }
+}
+
+// Update checkbox states
+function updateCheckboxes() {
+    document.querySelectorAll('.file-card').forEach(card => {
+        const checkbox = card.querySelector('.file-card-checkbox');
+        const itemName = card.dataset.itemName;
+        if (checkbox) {
+            checkbox.checked = selectedFiles.has(itemName);
+            if (selectedFiles.has(itemName)) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        }
+    });
+}
+
+// Bulk action buttons
+document.getElementById('selectAllBtn')?.addEventListener('click', () => {
+    currentFiles.forEach(item => selectedFiles.add(item.name));
+    updateBulkActionsBar();
+    updateCheckboxes();
+});
+
+document.getElementById('deselectAllBtn')?.addEventListener('click', () => {
+    selectedFiles.clear();
+    updateBulkActionsBar();
+    updateCheckboxes();
+});
+
+document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => {
+    if (selectedFiles.size === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${selectedFiles.size} item(s)? This action cannot be undone.`)) {
+        return;
+    }
+
+    const items = Array.from(selectedFiles);
+    let successCount = 0;
+
+    for (const itemName of items) {
+        const item = currentFiles.find(f => f.name === itemName);
+        if (item) {
+            const success = await deleteItemAPI(itemName, item.isDirectory);
+            if (success) successCount++;
+        }
+    }
+
+    alert(`Deleted ${successCount} of ${items.length} item(s)`);
+    selectedFiles.clear();
+    updateBulkActionsBar();
+    await loadFiles(currentFolder);
+});
+
+document.getElementById('bulkMoveBtn')?.addEventListener('click', () => {
+    if (selectedFiles.size === 0) return;
+    showFolderSelectionModal('move');
+});
+
+document.getElementById('bulkCopyBtn')?.addEventListener('click', () => {
+    if (selectedFiles.size === 0) return;
+    showFolderSelectionModal('copy');
+});
+
+// Delete item
+async function deleteItem(itemName, isDirectory) {
+    const itemType = isDirectory ? 'folder' : 'file';
+    if (!confirm(`Are you sure you want to delete this ${itemType}? This action cannot be undone.`)) {
+        return;
+    }
+
+    const success = await deleteItemAPI(itemName, isDirectory);
+    if (success) {
+        await loadFiles(currentFolder);
+    }
+}
+
+async function deleteItemAPI(itemName, isDirectory) {
+    try {
+        const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
+        const res = await fetch(`${API_BASE}/github/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ghToken}`
+            },
+            body: JSON.stringify({
+                owner: ghUser,
+                repo: ghRepo,
+                branch: ghBranch,
+                path: itemPath,
+                isDirectory
+            })
+        });
+
+        if (res.ok) {
+            return true;
+        } else {
+            alert('Failed to delete');
+            return false;
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error deleting item');
+        return false;
+    }
+}
+
+// Rename item
+async function renameItem(itemName, isDirectory) {
+    const newName = prompt(`Enter new name for this ${isDirectory ? 'folder' : 'file'}:`, itemName);
+    if (!newName || newName.trim() === '' || newName === itemName) return;
+
+    // Check for duplicates
+    const existingNames = currentFiles
+        .filter(item => item.isDirectory === isDirectory)
+        .map(item => item.name);
+    
+    if (existingNames.includes(newName.trim())) {
+        alert(`A ${isDirectory ? 'folder' : 'file'} with this name already exists!`);
+        return;
+    }
+
+    try {
+        const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
+        const res = await fetch(`${API_BASE}/github/rename`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ghToken}`
+            },
+            body: JSON.stringify({
+                owner: ghUser,
+                repo: ghRepo,
+                branch: ghBranch,
+                oldPath: itemPath,
+                newName: newName.trim(),
+                isDirectory
+            })
+        });
+
+        if (res.ok) {
+            await loadFiles(currentFolder);
+        } else {
+            alert('Failed to rename');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error renaming item');
+    }
+}
+
+// Drag and drop handlers
+function handleDragStart(e, item) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', JSON.stringify({ name: item.name, isDirectory: item.isDirectory }));
+    e.currentTarget.classList.add('dragging');
+}
+
+function handleDragEnd(e) {
+    e.currentTarget.classList.remove('dragging');
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleDrop(e, targetFolder) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    
+    try {
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        const sourceName = data.name;
+        const isDirectory = data.isDirectory;
+        
+        // Don't allow dropping on self
+        if (sourceName === targetFolder.name) return;
+        
+        const targetPath = currentFolder ? `${currentFolder}/${targetFolder.name}` : targetFolder.name;
+        
+        if (confirm(`Move "${sourceName}" to "${targetFolder.name}"?`)) {
+            await moveOrCopyItem(sourceName, targetPath, 'move', isDirectory);
+        }
+    } catch (err) {
+        console.error('Drop error:', err);
+    }
+}
+
+// Folder selection modal for move/copy
+let folderSelectionOperation = null;
+const folderSelectionModal = document.getElementById('folderSelectionModal');
+const closeFolderSelectionModal = document.getElementById('closeFolderSelectionModal');
+const cancelFolderSelection = document.getElementById('cancelFolderSelection');
+const confirmFolderSelection = document.getElementById('confirmFolderSelection');
+let selectedDestFolder = null;
+
+async function showFolderSelectionModal(operation) {
+    folderSelectionOperation = operation;
+    const title = document.getElementById('folderSelectionTitle');
+    title.textContent = `Select Destination Folder (${operation === 'move' ? 'Move' : 'Copy'})`;
+    
+    // Load all folders
+    await renderFolderTree();
+    
+    folderSelectionModal.classList.remove('hidden');
+}
+
+async function renderFolderTree() {
+    const folderTree = document.getElementById('folderTree');
+    folderTree.innerHTML = '<div style="padding: 0.5rem; cursor: pointer; hover:background: var(--hover-bg);" data-folder="" class="folder-tree-item"><i class="fas fa-home"></i> Home</div>';
+    
+    try {
+        // Get all folders recursively
+        const folders = await fetchAllFolders();
+        folders.forEach(folder => {
+            const indent = folder.split('/').length - 1;
+            const div = document.createElement('div');
+            div.className = 'folder-tree-item';
+            div.style.paddingLeft = `${indent + 1}rem`;
+            div.style.padding = '0.5rem';
+            div.style.cursor = 'pointer';
+            div.dataset.folder = folder;
+            div.innerHTML = `<i class="fas fa-folder"></i> ${folder.split('/').pop()}`;
+            div.onclick = () => selectDestFolder(folder);
+            folderTree.appendChild(div);
+        });
+    } catch (err) {
+        console.error('Error loading folders:', err);
+    }
+}
+
+function selectDestFolder(folder) {
+    selectedDestFolder = folder;
+    document.querySelectorAll('.folder-tree-item').forEach(el => {
+        el.style.background = el.dataset.folder === folder ? 'var(--primary-color)' : '';
+        el.style.color = el.dataset.folder === folder ? 'white' : '';
+    });
+}
+
+async function fetchAllFolders(path = '') {
+    try {
+        const items = await fetchGitHubFiles(path);
+        const folders = [];
+        
+        for (const item of items) {
+            if (item.isDirectory) {
+                const folderPath = path ? `${path}/${item.name}` : item.name;
+                folders.push(folderPath);
+                // Recursively get subfolders
+                const subFolders = await fetchAllFolders(folderPath);
+                folders.push(...subFolders);
+            }
+        }
+        
+        return folders;
+    } catch (err) {
+        console.error('Error fetching folders:', err);
+        return [];
+    }
+}
+
+closeFolderSelectionModal?.addEventListener('click', () => {
+    folderSelectionModal.classList.add('hidden');
+    selectedDestFolder = null;
+});
+
+cancelFolderSelection?.addEventListener('click', () => {
+    folderSelectionModal.classList.add('hidden');
+    selectedDestFolder = null;
+});
+
+confirmFolderSelection?.addEventListener('click', async () => {
+    if (selectedDestFolder === null) {
+        alert('Please select a destination folder');
+        return;
+    }
+    
+    folderSelectionModal.classList.add('hidden');
+    
+    const items = Array.from(selectedFiles);
+    let successCount = 0;
+
+    for (const itemName of items) {
+        const item = currentFiles.find(f => f.name === itemName);
+        if (item) {
+            const success = await moveOrCopyItem(itemName, selectedDestFolder, folderSelectionOperation, item.isDirectory);
+            if (success) successCount++;
+        }
+    }
+
+    alert(`${folderSelectionOperation === 'move' ? 'Moved' : 'Copied'} ${successCount} of ${items.length} item(s)`);
+    selectedFiles.clear();
+    updateBulkActionsBar();
+    await loadFiles(currentFolder);
+    selectedDestFolder = null;
+});
+
+async function moveOrCopyItem(itemName, destFolder, operation, isDirectory) {
+    try {
+        const sourcePath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
+        const res = await fetch(`${API_BASE}/github/move-copy`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ghToken}`
+            },
+            body: JSON.stringify({
+                owner: ghUser,
+                repo: ghRepo,
+                branch: ghBranch,
+                sourcePath,
+                destFolder,
+                operation,
+                isDirectory
+            })
+        });
+
+        if (res.ok) {
+            return true;
+        } else {
+            console.error(`Failed to ${operation}`);
+            return false;
+        }
+    } catch (err) {
+        console.error(err);
+        return false;
+    }
+}
 
 init();
 

@@ -432,6 +432,264 @@ app.post('/api/github/create-folder', async (req, res) => {
     }
 });
 
+// Delete File or Folder
+app.delete('/api/github/delete', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, path: filePath, isDirectory } = req.body;
+
+    if (!token || !owner || !repo || !filePath) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+        const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
+
+        if (isDirectory) {
+            // Delete all files in folder recursively
+            const { data: contents } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: fullPath,
+                ref: branch || 'main'
+            });
+
+            // Delete all files in folder
+            for (const item of contents) {
+                const { data: fileData } = await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: item.path,
+                    ref: branch || 'main'
+                });
+
+                if (Array.isArray(fileData)) {
+                    // It's a subfolder, skip for now (can implement recursive delete later)
+                    continue;
+                }
+
+                await octokit.rest.repos.deleteFile({
+                    owner,
+                    repo,
+                    path: item.path,
+                    message: `Delete ${item.name}`,
+                    sha: fileData.sha,
+                    branch: branch || 'main'
+                });
+            }
+        } else {
+            // Delete single file
+            const { data } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: fullPath,
+                ref: branch || 'main'
+            });
+
+            await octokit.rest.repos.deleteFile({
+                owner,
+                repo,
+                path: fullPath,
+                message: `Delete ${filePath}`,
+                sha: data.sha,
+                branch: branch || 'main'
+            });
+        }
+
+        res.json({ message: 'Deleted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to delete' });
+    }
+});
+
+// Rename File or Folder
+app.post('/api/github/rename', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, oldPath, newName, isDirectory } = req.body;
+
+    if (!token || !owner || !repo || !oldPath || !newName) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+        const fullOldPath = oldPath.startsWith('uploads/') ? oldPath : `uploads/${oldPath}`;
+        const pathParts = fullOldPath.split('/');
+        pathParts[pathParts.length - 1] = newName;
+        const fullNewPath = pathParts.join('/');
+
+        if (isDirectory) {
+            // For folders, we need to move all files
+            const { data: contents } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: fullOldPath,
+                ref: branch || 'main'
+            });
+
+            for (const item of contents) {
+                const { data: fileData } = await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: item.path,
+                    ref: branch || 'main'
+                });
+
+                if (Array.isArray(fileData)) continue;
+
+                const newItemPath = item.path.replace(fullOldPath, fullNewPath);
+                
+                // Create file in new location
+                await octokit.rest.repos.createOrUpdateFileContents({
+                    owner,
+                    repo,
+                    path: newItemPath,
+                    message: `Rename ${oldPath} to ${newName}`,
+                    content: fileData.content,
+                    branch: branch || 'main'
+                });
+
+                // Delete old file
+                await octokit.rest.repos.deleteFile({
+                    owner,
+                    repo,
+                    path: item.path,
+                    message: `Rename ${oldPath} to ${newName}`,
+                    sha: fileData.sha,
+                    branch: branch || 'main'
+                });
+            }
+        } else {
+            // Rename single file
+            const { data } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: fullOldPath,
+                ref: branch || 'main'
+            });
+
+            // Create file with new name
+            await octokit.rest.repos.createOrUpdateFileContents({
+                owner,
+                repo,
+                path: fullNewPath,
+                message: `Rename ${oldPath} to ${newName}`,
+                content: data.content,
+                branch: branch || 'main'
+            });
+
+            // Delete old file
+            await octokit.rest.repos.deleteFile({
+                owner,
+                repo,
+                path: fullOldPath,
+                message: `Rename ${oldPath} to ${newName}`,
+                sha: data.sha,
+                branch: branch || 'main'
+            });
+        }
+
+        res.json({ message: 'Renamed successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to rename' });
+    }
+});
+
+// Move/Copy File or Folder
+app.post('/api/github/move-copy', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, sourcePath, destFolder, operation, isDirectory } = req.body;
+
+    if (!token || !owner || !repo || !sourcePath || destFolder === undefined || !operation) {
+        return res.status(400).json({ error: 'Missing requirements' });
+    }
+
+    try {
+        const octokit = getOctokit(token);
+        const fullSourcePath = sourcePath.startsWith('uploads/') ? sourcePath : `uploads/${sourcePath}`;
+        const sourceName = fullSourcePath.split('/').pop();
+        const fullDestPath = destFolder ? `uploads/${destFolder}/${sourceName}` : `uploads/${sourceName}`;
+
+        if (isDirectory) {
+            // Move/Copy folder
+            const { data: contents } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: fullSourcePath,
+                ref: branch || 'main'
+            });
+
+            for (const item of contents) {
+                const { data: fileData } = await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: item.path,
+                    ref: branch || 'main'
+                });
+
+                if (Array.isArray(fileData)) continue;
+
+                const newItemPath = item.path.replace(fullSourcePath, fullDestPath);
+                
+                // Create file in destination
+                await octokit.rest.repos.createOrUpdateFileContents({
+                    owner,
+                    repo,
+                    path: newItemPath,
+                    message: `${operation === 'move' ? 'Move' : 'Copy'} ${sourcePath}`,
+                    content: fileData.content,
+                    branch: branch || 'main'
+                });
+
+                // Delete source if moving
+                if (operation === 'move') {
+                    await octokit.rest.repos.deleteFile({
+                        owner,
+                        repo,
+                        path: item.path,
+                        message: `Move ${sourcePath}`,
+                        sha: fileData.sha,
+                        branch: branch || 'main'
+                    });
+                }
+            }
+        } else {
+            // Move/Copy single file
+            const { data } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: fullSourcePath,
+                ref: branch || 'main'
+            });
+
+            // Create file in destination
+            await octokit.rest.repos.createOrUpdateFileContents({
+                owner,
+                repo,
+                path: fullDestPath,
+                message: `${operation === 'move' ? 'Move' : 'Copy'} ${sourcePath}`,
+                content: data.content,
+                branch: branch || 'main'
+            });
+
+            // Delete source if moving
+            if (operation === 'move') {
+                await octokit.rest.repos.deleteFile({
+                    owner,
+                    repo,
+                    path: fullSourcePath,
+                    message: `Move ${sourcePath}`,
+                    sha: data.sha,
+                    branch: branch || 'main'
+                });
+            }
+        }
+
+        res.json({ message: `${operation === 'move' ? 'Moved' : 'Copied'} successfully` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: `Failed to ${operation}` });
+    }
+});
+
 // View File Content (Proxy to avoid CORS and Auth issues on frontend)
 app.get('/api/github/view', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
