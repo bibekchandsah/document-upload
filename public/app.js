@@ -52,6 +52,7 @@ let ghToken = localStorage.getItem('gh_token');
 let ghUser = localStorage.getItem('gh_user');
 let ghRepo = localStorage.getItem('gh_repo');
 let ghBranch = localStorage.getItem('gh_branch') || 'main';
+let ghAvatar = localStorage.getItem('gh_avatar');
 
 // --- Initialization ---
 async function init() {
@@ -70,7 +71,12 @@ async function init() {
         if (res.ok) {
             const data = await res.json();
             ghUser = data.username;
+            ghAvatar = data.avatar_url;
             localStorage.setItem('gh_user', ghUser);
+            localStorage.setItem('gh_avatar', ghAvatar);
+
+            // Display user profile in sidebar
+            displayUserProfile();
 
             if (!ghRepo) {
                 // Token valid but no repo selected, redirect to login to select repo
@@ -88,14 +94,35 @@ async function init() {
     }
 }
 
+function displayUserProfile() {
+    console.log("loading user profile");
+    // alert("loading user profile");
+    const userAvatar = document.getElementById('userAvatar');
+    const userName = document.getElementById('userName');
+
+    if (userAvatar && ghAvatar) {
+        userAvatar.src = ghAvatar;
+        userAvatar.style.display = 'block';
+    } else if (userAvatar) {
+        userAvatar.style.display = 'none';
+    }
+
+    if (userName && ghUser) {
+        userName.textContent = ghUser;
+    }
+}
+
 function logout() {
     localStorage.removeItem('gh_token');
     localStorage.removeItem('gh_user');
     localStorage.removeItem('gh_repo');
     localStorage.removeItem('gh_branch');
+    localStorage.removeItem('gh_avatar');
     ghToken = null;
     ghUser = null;
     ghRepo = null;
+    ghAvatar = null;
+    // alert("logout");
     window.location.href = 'login.html';
 }
 
@@ -747,4 +774,6 @@ printBtn.onclick = () => {
 
 init();
 
+// Logout button event listener
+document.getElementById('logoutBtn')?.addEventListener('click', logout);
 

@@ -254,7 +254,7 @@ app.post('/api/github/validate', async (req, res) => {
     try {
         const octokit = getOctokit(token);
         const { data } = await octokit.rest.users.getAuthenticated();
-        res.json({ username: data.login });
+        res.json({ username: data.login, avatar_url: data.avatar_url });
     } catch (error) {
         res.status(401).json({ error: 'Invalid token' });
     }
