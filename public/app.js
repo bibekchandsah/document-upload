@@ -338,6 +338,23 @@ async function loadApp() {
         });
     }
 
+    // Initialize hard refresh button
+    const hardRefreshBtn = document.getElementById('hardRefreshBtn');
+    if (hardRefreshBtn) {
+        hardRefreshBtn.addEventListener('click', () => {
+            // Clear cache and perform hard refresh
+            if ('caches' in window) {
+                caches.keys().then((names) => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                });
+            }
+            // Force reload from server (bypass cache)
+            window.location.reload(true);
+        });
+    }
+
     // Check URL for folder and file parameters
     const urlParams = new URLSearchParams(window.location.search);
     const folderParam = urlParams.get('folder') || '';
