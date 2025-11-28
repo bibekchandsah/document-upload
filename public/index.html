@@ -91,6 +91,11 @@
                     <i class="fas fa-image"></i>
                     <span>Thumbnails</span>
                 </label>
+                <label class="view-option-toggle" title="Toggle dark mode">
+                    <input type="checkbox" id="darkModeToggle">
+                    <i class="fas fa-moon"></i>
+                    <span>Dark Mode</span>
+                </label>
             </div>
 
             <div id="fileGrid" class="file-grid">
@@ -138,7 +143,7 @@
                 <h3><i class="fas fa-share-alt"></i> Share File</h3>
                 <button id="closeShareModal" class="icon-btn"><i class="fas fa-times"></i></button>
             </div>
-            <div class="modal-body" style="padding: 2rem; background: white;">
+            <div class="modal-body" style="padding: 2rem;">
                 <div id="shareForm">
                     <label for="expirationSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Link
                         expires in:</label>
@@ -182,7 +187,7 @@
                         <button id="copyLinkBtn" class="primary-btn"><i class="fas fa-copy"></i> Copy</button>
                         <button id="qrCodeBtn" class="primary-btn" style="background: #8b5cf6;" title="Show QR Code"><i class="fas fa-qrcode"></i></button>
                     </div>
-                    <div id="qrCodeContainer" style="display: none; text-align: center; margin-bottom: 1rem; padding: 1rem; background: #f9fafb; border-radius: 0.5rem;">
+                    <div id="qrCodeContainer" style="display: none; text-align: center; margin-bottom: 1rem; padding: 1rem; background: #f9fafb00; border-radius: 0.5rem;">
                         <div id="qrCodeCanvas"></div>
                         <p style="font-size: 0.8rem; color: #6b7280; margin-top: 0.5rem;">Scan to open share link</p>
                     </div>
@@ -229,7 +234,7 @@
                 <h3><i class="fas fa-tachometer-alt"></i> GitHub API Rate Limit</h3>
                 <button id="closeRateLimitModal" class="icon-btn"><i class="fas fa-times"></i></button>
             </div>
-            <div class="modal-body" style="padding: 2rem; background: white;">
+            <div class="modal-body" style="padding: 2rem;">
                 <div id="rateLimitLoading" style="text-align: center; padding: 2rem;">
                     <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-color);"></i>
                     <p style="margin-top: 1rem; color: #6b7280;">Loading rate limit data...</p>
@@ -292,7 +297,7 @@
                 <h3><i class="fas fa-info-circle"></i> Project Info & Limitations</h3>
                 <button id="closeProjectInfoModal" class="icon-btn"><i class="fas fa-times"></i></button>
             </div>
-            <div class="modal-body" style="padding: 2rem; background: white; overflow-y: auto; display: grid;">
+            <div class="modal-body" style="padding: 2rem; overflow-y: auto; display: grid;">
                 <div class="info-section">
                     <h4><i class="fas fa-star"></i> Features</h4>
                     <ul>

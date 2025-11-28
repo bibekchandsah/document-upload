@@ -1,6 +1,6 @@
 {
-    "name": "Document Viewer",
-    "short_name": "DocView",
+    "name": "Mero Document",
+    "short_name": "MeroDoc",
     "start_url": "./",
     "display": "standalone",
     "background_color": "#f3f4f6",

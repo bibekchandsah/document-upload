@@ -78,6 +78,9 @@ let selectedFiles = new Set(); // Track selected files for bulk operations
 let selectionMode = false; // Track if we're in selection mode
 let showThumbnails = localStorage.getItem('showThumbnails') === 'true'; // Track thumbnail preference
 
+// Dark mode state
+let darkMode = localStorage.getItem('darkMode') === 'true'; // Track dark mode preference
+
 // Auth State
 let ghToken = localStorage.getItem('gh_token');
 let ghUser = localStorage.getItem('gh_user');
@@ -304,6 +307,25 @@ function logout() {
 
 async function loadApp() {
     await loadSidebarFolders();
+    
+    // Initialize dark mode
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    if (darkModeToggle) {
+        darkModeToggle.checked = darkMode;
+        // Apply dark mode on load
+        if (darkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+        darkModeToggle.addEventListener('change', (e) => {
+            darkMode = e.target.checked;
+            localStorage.setItem('darkMode', darkMode);
+            if (darkMode) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+        });
+    }
     
     // Initialize thumbnail toggle
     const thumbnailToggle = document.getElementById('showThumbnails');
