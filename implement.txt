@@ -35,6 +35,7 @@ log (username, token, shared link) in csv file
  - username selected repository
  - username shared link
 
+12) file(images) preview in thumbnail (optional)
 
 
 

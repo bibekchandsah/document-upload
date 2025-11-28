@@ -76,6 +76,7 @@ let currentViewedFile = null; // Track the currently viewed file for sharing
 let currentViewedFilePath = '';
 let selectedFiles = new Set(); // Track selected files for bulk operations
 let selectionMode = false; // Track if we're in selection mode
+let showThumbnails = localStorage.getItem('showThumbnails') === 'true'; // Track thumbnail preference
 
 // Auth State
 let ghToken = localStorage.getItem('gh_token');
@@ -303,6 +304,17 @@ function logout() {
 
 async function loadApp() {
     await loadSidebarFolders();
+    
+    // Initialize thumbnail toggle
+    const thumbnailToggle = document.getElementById('showThumbnails');
+    if (thumbnailToggle) {
+        thumbnailToggle.checked = showThumbnails;
+        thumbnailToggle.addEventListener('change', (e) => {
+            showThumbnails = e.target.checked;
+            localStorage.setItem('showThumbnails', showThumbnails);
+            renderFiles(currentFiles); // Re-render with/without thumbnails
+        });
+    }
 
     // Check URL for folder and file parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -612,6 +624,62 @@ function renderFiles(items) {
                 fileMeta.innerHTML = metaText + `<br><span style="font-size:0.7rem; color:#888;">${item.path || 'Home'}</span>`;
             } else {
                 fileMeta.textContent = metaText;
+            }
+            
+            // Create thumbnail element for images
+            const isImage = item.type && item.type.includes('image');
+            if (isImage) {
+                const thumbnail = document.createElement('img');
+                thumbnail.className = 'file-thumbnail';
+                thumbnail.alt = '';
+                thumbnail.loading = 'lazy'; // Lazy load thumbnails
+                
+                // Add loading class initially (show loading state)
+                thumbnail.classList.add('loading');
+                
+                // Load thumbnail using fetch with auth header
+                const filePath = itemFolder ? `${itemFolder}/${item.name}` : item.name;
+                const thumbnailUrl = `${API_BASE}/github/view?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}`;
+                
+                // Fetch image with authentication and convert to blob URL
+                fetch(thumbnailUrl, {
+                    headers: { 'Authorization': `Bearer ${ghToken}` }
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to load thumbnail');
+                    return res.blob();
+                })
+                .then(blob => {
+                    const objectUrl = URL.createObjectURL(blob);
+                    thumbnail.src = objectUrl;
+                    thumbnail.alt = item.name;
+                    thumbnail.classList.remove('loading');
+                    // Clean up blob URL when image is removed from DOM
+                    thumbnail.addEventListener('load', () => {
+                        // Revoke after a delay to ensure it's rendered
+                        setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+                    });
+                })
+                .catch(err => {
+                    console.error('Thumbnail load error:', err);
+                    thumbnail.classList.remove('loading');
+                    thumbnail.style.display = 'none';
+                    fileIcon.style.display = 'block';
+                });
+                
+                // Add error handler for img element
+                thumbnail.onerror = () => {
+                    thumbnail.classList.remove('loading');
+                    thumbnail.style.display = 'none';
+                    fileIcon.style.display = 'block';
+                };
+                
+                card.appendChild(thumbnail);
+                
+                // Show thumbnail if toggle is enabled
+                if (showThumbnails) {
+                    card.classList.add('show-thumbnail');
+                }
             }
             
             card.appendChild(fileIcon);
