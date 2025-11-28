@@ -82,6 +82,172 @@
     flex-shrink: 0;
 }
 
+/* Project Info Section */
+.info-toggle-btn {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.875rem 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.info-toggle-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.info-toggle-btn i:last-child {
+    margin-left: auto;
+    font-size: 0.8rem;
+}
+
+.info-section {
+    background: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.info-section:last-child {
+    margin-bottom: 0;
+}
+
+.info-section h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.info-section h4 i {
+    color: #667eea;
+}
+
+.info-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.info-section li {
+    font-size: 0.85rem;
+    color: #4b5563;
+    padding: 0.4rem 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    line-height: 1.5;
+}
+
+.info-section li i {
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+}
+
+.info-section li i.fa-check {
+    color: #10b981;
+}
+
+.info-section li i.fa-times {
+    color: #ef4444;
+}
+
+.info-section li i.fa-arrow-right {
+    color: #f59e0b;
+}
+
+/* Developer Badge */
+@keyframes developerBadgeIntro {
+    0% {
+        max-width: 50px;
+    }
+    40% {
+        max-width: 250px;
+    }
+    50% {
+        max-width: 250px;
+    }
+    100% {
+        max-width: 50px;
+    }
+}
+
+@keyframes developerTextIntro {
+    0% {
+        opacity: 0;
+    }
+    40% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+.developer-badge {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    padding: 5px 45px 5px 5px;
+    border-radius: 50px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    max-width: 50px;
+    animation: developerBadgeIntro 3s ease-in-out 0.5s;
+}
+
+.developer-badge:hover {
+    max-width: 250px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.developer-badge img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.developer-text {
+    white-space: nowrap;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1f2937;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    animation: developerTextIntro 3s ease-in-out 0.5s;
+}
+
+.developer-badge:hover .developer-text {
+    opacity: 1;
+}
+
 /* Processing Indicator Toast */
 .processing-indicator {
     position: fixed;

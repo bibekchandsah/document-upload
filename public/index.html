@@ -243,6 +243,13 @@
                         <i class="fas fa-info-circle"></i> 
                         <span>GitHub API rate limit is <strong>5,000 requests per hour</strong> for authenticated users.</span>
                     </div>
+                    
+                    <!-- Info Button -->
+                    <button id="openProjectInfo" class="info-toggle-btn">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Project Info & Limitations</span>
+                        <i class="fas fa-external-link-alt"></i>
+                    </button>
                 </div>
                 <div id="rateLimitError" style="display: none; text-align: center; padding: 1rem;">
                     <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ef4444;"></i>
@@ -251,6 +258,74 @@
             </div>
         </div>
     </div>
+
+    <!-- Project Info Modal -->
+    <div id="projectInfoModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 600px; height: auto; max-height: 90vh;">
+            <div class="modal-header">
+                <h3><i class="fas fa-info-circle"></i> Project Info & Limitations</h3>
+                <button id="closeProjectInfoModal" class="icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 2rem; background: white; overflow-y: auto; display: grid;">
+                <div class="info-section">
+                    <h4><i class="fas fa-star"></i> Features</h4>
+                    <ul>
+                        <li><i class="fas fa-check"></i> GitHub-based file storage and management</li>
+                        <li><i class="fas fa-check"></i> Drag & drop file uploads</li>
+                        <li><i class="fas fa-check"></i> Folder organization with nested folders</li>
+                        <li><i class="fas fa-check"></i> Google Docs viewer for document preview</li>
+                        <li><i class="fas fa-check"></i> Search functionality</li>
+                        <li><i class="fas fa-check"></i> Renaming files and folders</li>
+                        <li><i class="fas fa-check"></i> Bulk operations (move, copy, delete)</li>
+                        <li><i class="fas fa-check"></i> Expiring share links with custom duration</li>
+                        <li><i class="fas fa-check"></i> QR code generation for share links</li>
+                        <li><i class="fas fa-check"></i> Progressive Web App (installable)</li>
+                        <li><i class="fas fa-check"></i> Real-time GitHub API rate limit monitoring</li>
+                    </ul>
+                </div>
+                
+                <div class="info-section">
+                    <h4><i class="fas fa-exclamation-triangle"></i> GitHub Limitations</h4>
+                    <ul>
+                        <li><i class="fas fa-times"></i> Maximum file size: <strong>100MB</strong> per file</li>
+                        <li><i class="fas fa-times"></i> API rate limit: <strong>5,000 requests/hour</strong></li>
+                        <li><i class="fas fa-times"></i> Repository size limit: <strong>~1GB recommended</strong></li>
+                        <li><i class="fas fa-times"></i> Low bandwith: <strong> >1GB repository size</strong></li>
+                        <li><i class="fas fa-times"></i> Large files (>100MB) require Git LFS</li>
+                        <li><i class="fas fa-times"></i> File operations may be slower than traditional storage</li>
+                        <li><i class="fas fa-times"></i> GitHub token required for authentication</li>
+                        <li><i class="fas fa-times"></i> Renaming files/folders >1MB takes longer duration</li>
+                    </ul>
+                </div>
+                
+                <div class="info-section">
+                    <h4><i class="fas fa-lightbulb"></i> Best Practices</h4>
+                    <ul>
+                        <li><i class="fas fa-arrow-right"></i> Keep files under 50-100MB for best performance</li>
+                        <li><i class="fas fa-arrow-right"></i> Use private repositories for sensitive data</li>
+                        <li><i class="fas fa-arrow-right"></i> Before uploading make sure it's properly named</li>
+                        <li><i class="fas fa-arrow-right"></i> Monitor your API rate limit usage regularly</li>
+                        <li><i class="fas fa-arrow-right"></i> Organize files in folders for easy management</li>
+                        <li><i class="fas fa-arrow-right"></i> Generate time-limited share links for security</li>
+                    </ul>
+                </div>
+                
+                <div class="info-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h4 style="color: white;"><i class="fas fa-code"></i> About This Project</h4>
+                    <p style="font-size: 0.875rem; line-height: 1.6; margin: 0;">
+                        This is a GitHub-based document management system that leverages GitHub's infrastructure for file storage and version control. 
+                        Perfect for personal document management, small team collaboration, and learning about API integration.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Developer Badge -->
+    <a href="https://www.bibekchandsah.com.np/" target="_blank" class="developer-badge" title="Developer: Bibek Chandsah">
+        <img src="https://bibekchandsah.github.io/kiitcse/assets/image/developer.jpg" alt="Developer">
+        <span class="developer-text">Developed by Bibek</span>
+    </a>
 
     <!-- QR Code Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>

@@ -270,6 +270,23 @@ document.getElementById('rateLimitModal')?.addEventListener('click', (e) => {
     }
 });
 
+// Open Project Info Modal
+document.getElementById('openProjectInfo')?.addEventListener('click', () => {
+    document.getElementById('projectInfoModal').classList.remove('hidden');
+});
+
+// Close Project Info Modal
+document.getElementById('closeProjectInfoModal')?.addEventListener('click', () => {
+    document.getElementById('projectInfoModal').classList.add('hidden');
+});
+
+// Close modal on outside click
+document.getElementById('projectInfoModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'projectInfoModal') {
+        document.getElementById('projectInfoModal').classList.add('hidden');
+    }
+});
+
 function logout() {
     localStorage.removeItem('gh_token');
     localStorage.removeItem('gh_user');

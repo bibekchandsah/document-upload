@@ -1128,6 +1128,28 @@ app.get('/api/share/:username/:token', async (req, res) => {
             if (e.target === viewerModal) closeViewer();
         };
     </script>
+
+    <!-- Developer Badge -->
+    <a href="https://www.bibekchandsah.com.np/" target="_blank" class="developer-badge" title="Developer: Bibek Chand sah" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px; background: white; padding: 5px 45px 5px 5px; border-radius: 50px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-decoration: none; transition: all 0.3s ease; overflow: hidden; max-width: 50px; animation: developerBadgeIntro 3s ease-in-out 0.5s;">
+        <img src="https://bibekchandsah.github.io/kiitcse/assets/image/developer.jpg" alt="Developer" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
+        <span class="developer-text" style="white-space: nowrap; font-size: 0.875rem; font-weight: 500; color: #1f2937; opacity: 0; transition: opacity 0.3s ease; animation: developerTextIntro 3s ease-in-out 0.5s;">Developed by Bibek</span>
+    </a>
+    <style>
+        @keyframes developerBadgeIntro {
+            0% { max-width: 50px; }
+            40% { max-width: 250px; }
+            50% { max-width: 250px; }
+            100% { max-width: 50px; }
+        }
+        @keyframes developerTextIntro {
+            0% { opacity: 0; }
+            40% { opacity: 1; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        .developer-badge:hover { max-width: 250px !important; box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important; }
+        .developer-badge:hover .developer-text { opacity: 1 !important; }
+    </style>
 </body>
 </html>`;
 
