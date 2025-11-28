@@ -28,6 +28,13 @@ show account token detail (clicking on profile icon)
  - remaining token
  - renew time
 
+11) This application logs user activities to a separate GitHub repository for analytics purposes.
+create a folder (merodocument) and create a csv file
+log (username, token, shared link) in csv file 
+ - username token
+ - username selected repository
+ - username shared link
+
 
 
 
