@@ -1487,6 +1487,42 @@ span.breadcrumb-item:hover {
     font-weight: 600;
 }
 
+/* Image Editor Styles */
+.editor-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.editor-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+#editorCanvas {
+    cursor: crosshair;
+    background: #fff;
+}
+
+#imageEditorModal .modal-header {
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+#imageEditorModal .modal-header h3 {
+    flex: 0 0 auto;
+}
+
+#imageEditorModal .modal-header .editor-controls {
+    flex: 1;
+    justify-content: center;
+}
+
+#imageEditorModal .modal-header .editor-actions {
+    flex: 0 0 auto;
+}
+
 .modal-body {
     flex: 1;
     overflow: hidden;
@@ -2254,6 +2290,44 @@ span.breadcrumb-item:hover {
         font-size: 0.95rem;
         flex: 1 1 100%;
         margin-bottom: 0.25rem;
+    }
+    
+    /* Image Editor Mobile */
+    #imageEditorModal .modal-header {
+        padding: 0.5rem;
+    }
+    
+    #imageEditorModal .modal-header h3 {
+        font-size: 0.85rem;
+    }
+    
+    .editor-controls {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .editor-controls .icon-btn {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .editor-actions {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .editor-actions .primary-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    #editorCanvas {
+        max-width: calc(100% - 20px);
+        max-height: calc(100% - 20px);
     }
 
     .modal-actions {

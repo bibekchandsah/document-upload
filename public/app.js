@@ -32,6 +32,10 @@ const customHours = document.getElementById('customHours');
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 
+
+// Initialize Image Editor Module
+let imageEditor = null;
+
 // Sidebar toggle functionality
 if (sidebarToggle && sidebar) {
     // Check if sidebar should start collapsed on mobile
@@ -71,6 +75,7 @@ expirationSelect.addEventListener('change', () => {
 // State
 let currentFolder = ''; // Relative path within 'uploads/'
 let currentFiles = [];
+window.currentFiles = currentFiles; // Expose globally for imageEditor
 let searchTimeout;
 let currentViewedFile = null; // Track the currently viewed file for sharing
 let currentViewedFilePath = '';
@@ -567,6 +572,7 @@ async function loadFiles(folder) {
         fileGrid.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading...</p></div>';
         const items = await fetchGitHubFiles(folder);
         currentFiles = items;
+        window.currentFiles = items; // Update global reference
         renderFiles(items);
     } catch (err) {
         console.error('Failed to load files', err);
@@ -978,6 +984,15 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
     currentViewedFile = { ...file, folder: folderOverride !== null ? folderOverride : currentFolder }; // Track for sharing
 
     const folderToUse = folderOverride !== null ? folderOverride : currentFolder;
+    
+    // Show/hide edit button based on file type
+    if (editImageBtn) {
+        if (file.type.includes('image')) {
+            editImageBtn.style.display = 'block';
+        } else {
+            editImageBtn.style.display = 'none';
+        }
+    }
 
     if (updateUrl) {
         const newUrl = `${window.location.pathname}?folder=${encodeURIComponent(folderToUse)}&file=${encodeURIComponent(file.name)}`;
@@ -2244,6 +2259,39 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retr
 
 init();
 
+// Initialize Image Editor after DOM is ready
+initializeImageEditor();
+
 // Logout button event listener
 document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+// --- Image Editor Functions ---
+
+// Initialize Image Editor when DOM is ready
+function initializeImageEditor() {
+    if (window.ImageEditor) {
+        imageEditor = new ImageEditor();
+        imageEditor.configure({
+            apiBase: API_BASE,
+            ghToken: ghToken,
+            ghUser: ghUser,
+            ghRepo: ghRepo,
+            ghBranch: ghBranch,
+            currentFolder: currentFolder
+        });
+        
+        // Set up edit button click handler
+        const editImageBtn = document.getElementById('editImageBtn');
+        if (editImageBtn) {
+            editImageBtn.addEventListener('click', () => {
+                if (currentViewedFile) {
+                    // Update config with current folder before opening
+                    imageEditor.configure({ currentFolder: currentFolder });
+                    imageEditor.open(currentViewedFile);
+                }
+            });
+        }
+    }
+}
+
 

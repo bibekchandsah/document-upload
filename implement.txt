@@ -36,6 +36,9 @@ log (username, token, shared link) in csv file
  - username shared link
 
 12) file(images) preview in thumbnail (optional)
+13) editing image (crop, flip, rotate)
+14) saving edited image as copy and detecting duplicate file name
+
 
 
 

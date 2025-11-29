@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Cropper.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" sizes="57x57" href="favicon/apple-icon-57x57.png">
     <link rel="apple-touch-icon" sizes="60x60" href="favicon/apple-icon-60x60.png">
@@ -128,6 +130,7 @@
             <div class="modal-header">
                 <h3 id="viewerFileName">Document Name</h3>
                 <div class="modal-actions">
+                    <button id="editImageBtn" class="icon-btn" title="Edit" style="display: none;"><i class="fas fa-edit"></i></button>
                     <button id="shareBtn" class="icon-btn" title="Share"><i class="fas fa-share-alt"></i></button>
                     <a id="downloadLink" href="#" class="icon-btn" title="Download"><i class="fas fa-download"></i></a>
                     <button id="printBtn" class="icon-btn" title="Print"><i class="fas fa-print"></i></button>
@@ -200,6 +203,33 @@
                     <p style="font-size: 0.875rem; color: #ef4444; margin-top: 0.5rem;"><i
                             class="fas fa-exclamation-triangle"></i> Anyone with this link can access the file until it
                         expires</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Editor Modal -->
+    <div id="imageEditorModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 90%; height: 90%;">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Edit Image</h3>
+                <div class="editor-controls">
+                    <button id="rotateLeftBtn" class="icon-btn" title="Rotate Left"><i class="fas fa-undo"></i></button>
+                    <button id="rotateRightBtn" class="icon-btn" title="Rotate Right"><i class="fas fa-redo"></i></button>
+                    <button id="flipHorizontalBtn" class="icon-btn" title="Flip Horizontal"><i class="fas fa-arrows-alt-h"></i></button>
+                    <button id="flipVerticalBtn" class="icon-btn" title="Flip Vertical"><i class="fas fa-arrows-alt-v"></i></button>
+                    <button id="cropBtn" class="icon-btn" title="Crop"><i class="fas fa-crop"></i></button>
+                    <button id="resetEditorBtn" class="icon-btn" title="Reset"><i class="fas fa-sync-alt"></i></button>
+                </div>
+                <div class="editor-actions">
+                    <button id="saveAsNewBtn" class="primary-btn"><i class="fas fa-copy"></i> Save as Copy</button>
+                    <button id="saveOverwriteBtn" class="primary-btn"><i class="fas fa-save"></i> Save</button>
+                    <button id="closeEditorBtn" class="icon-btn"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="modal-body" style="background: #000; padding: 1rem;">
+                <div id="editorContainer" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative;">
+                    <canvas id="editorCanvas" style="max-width: 100%; max-height: 100%; border: 2px solid var(--border-color);"></canvas>
                 </div>
             </div>
         </div>
@@ -364,6 +394,10 @@
 
     <!-- QR Code Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Cropper.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <!-- Image Editor Module -->
+    <script src="imageEditor.js"></script>
     <script src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
