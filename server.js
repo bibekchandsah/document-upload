@@ -5,6 +5,27 @@ const path = require('path');
 const fs = require('fs');
 const mime = require('mime-types');
 const crypto = require('crypto');
+
+// Try to load sharp, but don't fail if it's not available
+let sharp;
+try {
+    sharp = require('sharp');
+    console.log('Sharp image processing library loaded successfully');
+} catch (err) {
+    console.warn('Sharp library not available:', err.message);
+    console.warn('Thumbnail generation will fallback to returning original images');
+}
+
+// Try to load heic-convert for HEIC processing
+let heicConvert;
+try {
+    heicConvert = require('heic-convert');
+    console.log('HEIC conversion library loaded successfully');
+} catch (err) {
+    console.warn('heic-convert library not available:', err.message);
+    console.warn('HEIC images will be returned without conversion');
+}
+
 require('dotenv').config();
 
 // Import logging utility
@@ -868,6 +889,121 @@ app.get('/api/github/view', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(404).send('File not found');
+    }
+});
+
+// Thumbnail endpoint - generates optimized thumbnails server-side
+app.get('/api/github/thumbnail', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, path: filePath, size = '200' } = req.query;
+
+    if (!token || !owner || !repo || !filePath) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+        const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
+
+        // Get file metadata and content
+        const response = await octokit.rest.repos.getContent({
+            owner,
+            repo,
+            path: fullPath,
+            ref: branch || 'main'
+        });
+
+        // Validate it's a file
+        if (response.data.type !== 'file') {
+            return res.status(400).send('Not a file');
+        }
+
+        let buffer;
+
+        // Get file content
+        if (response.data.content) {
+            const base64Content = response.data.content.replace(/\n/g, '');
+            buffer = Buffer.from(base64Content, 'base64');
+        } else if (response.data.download_url) {
+            const downloadResponse = await fetch(response.data.download_url, {
+                headers: { 'Authorization': `token ${token}` }
+            });
+
+            if (!downloadResponse.ok) {
+                throw new Error(`Failed to download large file: ${downloadResponse.status}`);
+            }
+
+            const arrayBuffer = await downloadResponse.arrayBuffer();
+            buffer = Buffer.from(arrayBuffer);
+        } else {
+            return res.status(400).send('File content not available');
+        }
+
+        // Check if it's an image
+        const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+        
+        // Check if it's a HEIC/HEIF file
+        const isHEIC = filePath.match(/\.(heic|heif)$/i);
+        
+        if (!mimeType.startsWith('image/') && !isHEIC) {
+            // Not an image, return original
+            res.setHeader('Content-Type', mimeType);
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.send(buffer);
+            return;
+        }
+
+        // Convert HEIC to JPEG if needed
+        if (isHEIC && heicConvert) {
+            try {
+                console.log('Converting HEIC to JPEG for thumbnail...');
+                const jpegBuffer = await heicConvert({
+                    buffer: buffer,
+                    format: 'JPEG',
+                    quality: 0.5 // Medium quality for conversion
+                });
+                buffer = jpegBuffer;
+                console.log('HEIC converted successfully');
+            } catch (convError) {
+                console.error('HEIC conversion failed:', convError.message);
+                // If conversion fails, return original
+                res.setHeader('Content-Type', mimeType);
+                res.setHeader('Cache-Control', 'public, max-age=86400');
+                res.send(buffer);
+                return;
+            }
+        } else if (isHEIC && !heicConvert) {
+            // No HEIC converter available, return original
+            res.setHeader('Content-Type', mimeType);
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.send(buffer);
+            return;
+        }
+
+        // Check if sharp is available
+        if (!sharp) {
+            // Sharp not available, return original/converted image
+            res.setHeader('Content-Type', isHEIC ? 'image/jpeg' : mimeType);
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.send(buffer);
+            return;
+        }
+
+        // Generate thumbnail using sharp
+        const thumbnailSize = parseInt(size) || 200;
+        const thumbnail = await sharp(buffer)
+            .resize(thumbnailSize, thumbnailSize, {
+                fit: 'inside',
+                withoutEnlargement: true
+            })
+            .jpeg({ quality: 50 }) // Convert to JPEG with 50% quality
+            .toBuffer();
+
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.setHeader('Content-Length', thumbnail.length);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+        res.send(thumbnail);
+    } catch (error) {
+        console.error('Thumbnail generation error:', error);
+        res.status(500).send('Failed to generate thumbnail');
     }
 });
 

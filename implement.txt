@@ -99,3 +99,9 @@ git push -u origin main
 
 git config --global user.email "you@example.com"
 git config --global user.name "Your Name"
+
+
+
+netstat -ano | findstr :3000
+tasklist /FI "PID eq <PID>"
+taskkill /PID <PID> /F

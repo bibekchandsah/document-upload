@@ -149,6 +149,31 @@ class ImageEditor {
             return res.blob();
         })
         .then(blob => {
+            // Check if it's HEIC/HEIF format and convert if needed
+            const isHEIC = blob.type.includes('heic') || blob.type.includes('heif') || file.name.match(/\.(heic|heif)$/i);
+            
+            if (isHEIC && typeof heic2any !== 'undefined') {
+                // Show conversion message
+                console.log('Converting HEIC image for editing...');
+                
+                return heic2any({
+                    blob: blob,
+                    toType: 'image/jpeg',
+                    quality: 0.9
+                })
+                .then(convertedBlob => {
+                    console.log('HEIC converted successfully for editing');
+                    return convertedBlob;
+                })
+                .catch(err => {
+                    console.error('HEIC conversion failed:', err);
+                    throw new Error('Failed to convert HEIC image: ' + err.message);
+                });
+            }
+            
+            return blob;
+        })
+        .then(blob => {
             const url = URL.createObjectURL(blob);
             this.originalImageUrl = url;
             

@@ -13,8 +13,10 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "heic-convert": "^2.1.0",
     "mime-types": "^3.0.2",
     "multer": "^2.0.2",
-    "octokit": "^5.0.5"
+    "octokit": "^5.0.5",
+    "sharp": "^0.34.5"
   }
 }

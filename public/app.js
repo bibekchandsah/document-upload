@@ -558,6 +558,56 @@ async function createFolder(name) {
     }
 }
 
+// Helper function to create low-quality thumbnail
+function createLowQualityThumbnail(blob) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+        
+        img.onload = () => {
+            // Create canvas for thumbnail
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate thumbnail dimensions (max 200px)
+            const maxSize = 200;
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > height) {
+                if (width > maxSize) {
+                    height = (height / width) * maxSize;
+                    width = maxSize;
+                }
+            } else {
+                if (height > maxSize) {
+                    width = (width / height) * maxSize;
+                    height = maxSize;
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw image at reduced size
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Convert to blob with low quality
+            canvas.toBlob((thumbnailBlob) => {
+                URL.revokeObjectURL(url);
+                resolve(thumbnailBlob);
+            }, 'image/jpeg', 0.5); // 50% quality
+        };
+        
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load image for thumbnail'));
+        };
+        
+        img.src = url;
+    });
+}
+
 // --- File Operations ---
 async function fetchGitHubFiles(path) {
     const res = await fetch(`${API_BASE}/github/files?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(path)}`, {
@@ -671,8 +721,8 @@ function renderFiles(items) {
                 fileMeta.textContent = metaText;
             }
             
-            // Create thumbnail element for images
-            const isImage = item.type && item.type.includes('image');
+            // Create thumbnail element for images (including iPhone formats)
+            const isImage = (item.type && item.type.includes('image')) || item.name.match(/\.(heic|heif)$/i);
             if (isImage) {
                 const thumbnail = document.createElement('img');
                 thumbnail.className = 'file-thumbnail';
@@ -682,11 +732,12 @@ function renderFiles(items) {
                 // Add loading class initially (show loading state)
                 thumbnail.classList.add('loading');
                 
-                // Load thumbnail using fetch with auth header
+                // Load thumbnail using server-side thumbnail endpoint
+                // Server handles HEIC conversion and thumbnail generation
                 const filePath = itemFolder ? `${itemFolder}/${item.name}` : item.name;
-                const thumbnailUrl = `${API_BASE}/github/view?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}`;
+                const thumbnailUrl = `${API_BASE}/github/thumbnail?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}&size=200`;
                 
-                // Fetch image with authentication and convert to blob URL
+                // Fetch thumbnail with authentication
                 fetch(thumbnailUrl, {
                     headers: { 'Authorization': `Bearer ${ghToken}` }
                 })
@@ -694,8 +745,8 @@ function renderFiles(items) {
                     if (!res.ok) throw new Error('Failed to load thumbnail');
                     return res.blob();
                 })
-                .then(blob => {
-                    const objectUrl = URL.createObjectURL(blob);
+                .then(thumbnailBlob => {
+                    const objectUrl = URL.createObjectURL(thumbnailBlob);
                     thumbnail.src = objectUrl;
                     thumbnail.alt = item.name;
                     thumbnail.classList.remove('loading');
@@ -985,9 +1036,10 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
 
     const folderToUse = folderOverride !== null ? folderOverride : currentFolder;
     
-    // Show/hide edit button based on file type
+    // Show/hide edit button based on file type (including iPhone formats)
     if (editImageBtn) {
-        if (file.type.includes('image')) {
+        const isEditableImage = file.type.includes('image') || file.name.match(/\.(heic|heif)$/i);
+        if (isEditableImage) {
             editImageBtn.style.display = 'block';
         } else {
             editImageBtn.style.display = 'none';
@@ -1015,7 +1067,7 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
 
     const isDoc = file.name.match(/\.(docx|doc|xlsx|xls|pptx|ppt|csv)$/i);
     const isText = file.name.match(/\.(txt|json|md|js|css|html)$/i);
-    const isVideo = file.type.includes('video') || file.name.match(/\.(mp4|webm|ogg|mp3)$/i);
+    const isVideo = file.type.includes('video') || file.name.match(/\.(mp4|webm|ogg|mp3|mov)$/i);
 
     // Log the request details for debugging
     console.log('Fetching file:', {
@@ -1039,7 +1091,60 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
             const objectUrl = URL.createObjectURL(blob);
             console.log('Object URL created:', objectUrl);
 
-            if (file.type.includes('image')) {
+            // Check if it's an image (including iPhone formats)
+            const isImageFile = file.type.includes('image') || file.name.match(/\.(heic|heif)$/i);
+            if (isImageFile) {
+                // Check if it's HEIC/HEIF format and convert if needed
+                const isHEIC = blob.type.includes('heic') || blob.type.includes('heif') || file.name.match(/\.(heic|heif)$/i);
+                
+                if (isHEIC && typeof heic2any !== 'undefined') {
+                    // Convert HEIC to JPEG
+                    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Converting HEIC image...</p></div>';
+                    
+                    heic2any({
+                        blob: blob,
+                        toType: 'image/jpeg',
+                        quality: 0.9
+                    })
+                    .then(convertedBlob => {
+                        const convertedUrl = URL.createObjectURL(convertedBlob);
+                        const img = document.createElement('img');
+                        img.style.maxWidth = '100%';
+                        img.style.maxHeight = '100%';
+                        img.style.display = 'block';
+                        
+                        img.onload = () => {
+                            console.log('HEIC image converted and loaded successfully!');
+                            viewerBody.innerHTML = '';
+                            viewerBody.appendChild(img);
+                        };
+                        
+                        img.onerror = (e) => {
+                            console.error('Converted image failed to load:', e);
+                            viewerBody.innerHTML = `
+                                <div class="empty-state">
+                                    <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                                    <p style="color:red">Failed to display converted image</p>
+                                    <p style="font-size: 0.85rem; color: #666;">Try downloading the file instead</p>
+                                </div>`;
+                        };
+                        
+                        img.src = convertedUrl;
+                    })
+                    .catch(err => {
+                        console.error('HEIC conversion failed:', err);
+                        viewerBody.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                                <p style="color:red">Failed to convert HEIC image</p>
+                                <p style="font-size: 0.85rem; color: #666;">${err.message || 'Conversion error'}</p>
+                                <p style="font-size: 0.85rem; color: #666;">Try downloading the file instead</p>
+                            </div>`;
+                    });
+                    return; // Exit early, conversion is async
+                }
+                
+                // Regular image display
                 const img = document.createElement('img');
                 img.style.maxWidth = '100%';
                 img.style.maxHeight = '100%';
@@ -1056,10 +1161,17 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     console.error('Image src:', img.src);
                     console.error('Blob type:', blob.type);
                     console.error('Blob size:', blob.size);
+                    
+                    // Check if it's a HEIC/HEIF file
+                    const isHEIC = file.name.match(/\.(heic|heif)$/i);
+                    const errorMessage = isHEIC 
+                        ? 'HEIC/HEIF format not supported in browser. Please download the file or convert it to JPG/PNG.'
+                        : 'Failed to display image';
+                    
                     viewerBody.innerHTML = `
                         <div class="empty-state">
                             <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
-                            <p style="color:red">Failed to display image</p>
+                            <p style="color:red">${errorMessage}</p>
                             <p style="font-size: 0.85rem; color: #666;">Blob size: ${blob.size} bytes</p>
                             <p style="font-size: 0.85rem; color: #666;">Try downloading the file instead</p>
                         </div>`;
