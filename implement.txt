@@ -38,7 +38,14 @@ log (username, token, shared link) in csv file
 12) file(images) preview in thumbnail (optional)
 13) editing image (crop, flip, rotate)
 14) saving edited image as copy and detecting duplicate file name
+15) supported iphone images and videos
+16) decrease the quality  of all images on server side and thumbnail download only 15-20kb
+17) thhumbnail + blur effect loading image
+16) simulaneously load thumbnail and modal preview
 
+Add zoom controls and enhance modal styling
+
+- Ensured the modal prevents background scrolling when open and maintains a clean layout.
 
 
 
@@ -101,7 +108,7 @@ git config --global user.email "you@example.com"
 git config --global user.name "Your Name"
 
 
-
+node server.js
 netstat -ano | findstr :3000
 tasklist /FI "PID eq <PID>"
 taskkill /PID <PID> /F

@@ -2575,3 +2575,52 @@ span.breadcrumb-item:hover {
         height: 100vh;
     }
 }
+
+/* Zoom Controls */
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: var(--hover-bg);
+    padding: 0.25rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border-color);
+}
+
+.zoom-controls .icon-btn {
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.zoom-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: grab;
+}
+
+.zoom-container:active {
+    cursor: grabbing;
+}
+
+.zoom-content {
+    transform-origin: center center;
+    transition: transform 0.1s ease-out;
+    max-width: none !important;
+    /* Override max-width: 100% */
+    max-height: none !important;
+    /* Override max-height: 100% */
+}
+
+/* Prevent background scrolling when modal is open */
+body.modal-open {
+    overflow: hidden !important;
+}
+
+/* Ensure file grid doesn't scroll when modal is open */
+body.modal-open .file-grid {
+    overflow: hidden !important;
+}

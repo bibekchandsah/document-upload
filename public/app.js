@@ -110,6 +110,53 @@ function hideProcessing() {
     }
 }
 
+// Lazy Loading Observer
+const thumbnailObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            const img = entry.target;
+            const thumbnailUrl = img.dataset.thumbnailUrl;
+            const item = currentFiles.find(f => f.name === img.dataset.fileName);
+
+            if (thumbnailUrl && item && !item.thumbnailUrl) {
+                // Fetch thumbnail
+                fetch(thumbnailUrl, {
+                    headers: { 'Authorization': `Bearer ${ghToken}` }
+                })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Failed to load thumbnail');
+                        return res.blob();
+                    })
+                    .then(thumbnailBlob => {
+                        const objectUrl = URL.createObjectURL(thumbnailBlob);
+                        img.src = objectUrl;
+                        img.classList.remove('loading');
+
+                        // Store the object URL in the item for use in viewer
+                        item.thumbnailUrl = objectUrl;
+                    })
+                    .catch(err => {
+                        console.error('Thumbnail load error:', err);
+                        img.classList.remove('loading');
+                        img.style.display = 'none';
+                        // Show icon fallback
+                        const card = img.closest('.file-card');
+                        if (card) {
+                            const icon = card.querySelector('.file-icon');
+                            if (icon) icon.style.display = 'block';
+                        }
+                    });
+            }
+
+            observer.unobserve(img);
+        }
+    });
+}, {
+    root: null, // viewport
+    rootMargin: '50px', // load slightly before visible
+    threshold: 0.1
+});
+
 // --- Initialization ---
 async function init() {
     if (!ghToken) {
@@ -211,19 +258,19 @@ async function fetchRateLimit() {
         // Update UI
         document.getElementById('totalTokens').textContent = data.limit.toLocaleString();
         document.getElementById('remainingTokens').textContent = data.remaining.toLocaleString();
-        
+
         // Format reset time
         const resetDate = new Date(data.reset * 1000);
         const now = new Date();
         const diffMs = resetDate - now;
         const diffMins = Math.floor(diffMs / 60000);
         const diffSecs = Math.floor((diffMs % 60000) / 1000);
-        
+
         // Format time only
         const timeOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
         const timeStr = resetDate.toLocaleTimeString('en-US', timeOptions);
         document.getElementById('renewTime').textContent = timeStr;
-        
+
         // Format countdown
         let countdownText = '';
         if (diffMs > 0) {
@@ -312,7 +359,7 @@ function logout() {
 
 async function loadApp() {
     await loadSidebarFolders();
-    
+
     // Initialize dark mode
     const darkModeToggle = document.getElementById('darkModeToggle');
     if (darkModeToggle) {
@@ -331,7 +378,7 @@ async function loadApp() {
             }
         });
     }
-    
+
     // Initialize thumbnail toggle
     const thumbnailToggle = document.getElementById('showThumbnails');
     if (thumbnailToggle) {
@@ -418,12 +465,12 @@ function renderSidebarFolders(folders) {
     if (currentFolder === '') homeLi.classList.add('active');
     homeLi.innerHTML = `<i class="fas fa-home"></i> <span>Home</span>`;
     homeLi.onclick = () => selectFolder('');
-    
+
     // Add drag and drop for Home folder
     homeLi.ondragover = (e) => handleSidebarDragOver(e);
     homeLi.ondragleave = (e) => handleSidebarDragLeave(e);
     homeLi.ondrop = (e) => handleSidebarDrop(e, '');
-    
+
     folderList.appendChild(homeLi);
 
     folders.forEach(folder => {
@@ -433,12 +480,12 @@ function renderSidebarFolders(folders) {
         if (currentFolder === folder || currentFolder.startsWith(folder + '/')) li.classList.add('active');
         li.innerHTML = `<i class="fas fa-folder"></i> <span>${folder}</span>`;
         li.onclick = () => selectFolder(folder);
-        
+
         // Add drag and drop handlers
         li.ondragover = (e) => handleSidebarDragOver(e);
         li.ondragleave = (e) => handleSidebarDragLeave(e);
         li.ondrop = (e) => handleSidebarDrop(e, folder);
-        
+
         folderList.appendChild(li);
     });
 }
@@ -511,7 +558,7 @@ createFolderBtn.onclick = async () => {
     const existingFolderNames = currentFiles.filter(item => item.isDirectory === true).map(item => item.name);
     console.log('Existing folders:', existingFolderNames);
     console.log('Attempting to create folder:', name);
-    
+
     while (existingFolderNames.includes(name)) {
         alert(`❌ Folder "${name}" already exists!\n\nPlease choose a different name.`);
         name = prompt('Enter a different folder name:');
@@ -563,17 +610,17 @@ function createLowQualityThumbnail(blob) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(blob);
-        
+
         img.onload = () => {
             // Create canvas for thumbnail
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            
+
             // Calculate thumbnail dimensions (max 200px)
             const maxSize = 200;
             let width = img.width;
             let height = img.height;
-            
+
             if (width > height) {
                 if (width > maxSize) {
                     height = (height / width) * maxSize;
@@ -585,25 +632,25 @@ function createLowQualityThumbnail(blob) {
                     height = maxSize;
                 }
             }
-            
+
             canvas.width = width;
             canvas.height = height;
-            
+
             // Draw image at reduced size
             ctx.drawImage(img, 0, 0, width, height);
-            
+
             // Convert to blob with low quality
             canvas.toBlob((thumbnailBlob) => {
                 URL.revokeObjectURL(url);
                 resolve(thumbnailBlob);
             }, 'image/jpeg', 0.5); // 50% quality
         };
-        
+
         img.onerror = () => {
             URL.revokeObjectURL(url);
             reject(new Error('Failed to load image for thumbnail'));
         };
-        
+
         img.src = url;
     });
 }
@@ -619,6 +666,16 @@ async function fetchGitHubFiles(path) {
 
 async function loadFiles(folder) {
     try {
+        // Revoke existing thumbnail URLs to prevent memory leaks
+        if (currentFiles && currentFiles.length > 0) {
+            currentFiles.forEach(file => {
+                if (file.thumbnailUrl) {
+                    URL.revokeObjectURL(file.thumbnailUrl);
+                    file.thumbnailUrl = null;
+                }
+            });
+        }
+
         fileGrid.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading...</p></div>';
         const items = await fetchGitHubFiles(folder);
         currentFiles = items;
@@ -646,12 +703,12 @@ function renderFiles(items) {
         card.className = 'file-card';
         card.dataset.itemName = item.name;
         card.dataset.isDirectory = item.isDirectory;
-        
+
         // Make card draggable
         card.draggable = true;
         card.ondragstart = (e) => handleDragStart(e, item);
         card.ondragend = (e) => handleDragEnd(e);
-        
+
         // Allow drop on folders
         if (item.isDirectory) {
             card.ondragover = (e) => handleDragOver(e);
@@ -690,7 +747,7 @@ function renderFiles(items) {
         fileName.className = 'file-name';
         fileName.title = item.name;
         fileName.textContent = item.name;
-        
+
         const fileMeta = document.createElement('div');
         fileMeta.className = 'file-meta';
 
@@ -698,11 +755,11 @@ function renderFiles(items) {
             fileIcon.className = 'file-icon fas fa-folder';
             fileIcon.style.color = '#fbbf24';
             fileMeta.textContent = 'Folder';
-            
+
             card.appendChild(fileIcon);
             card.appendChild(fileName);
             card.appendChild(fileMeta);
-            
+
             // Navigate into folder
             const newPath = currentFolder ? `${currentFolder}/${item.name}` : item.name;
             card.onclick = (e) => {
@@ -712,7 +769,7 @@ function renderFiles(items) {
             };
         } else {
             fileIcon.className = 'file-icon ' + getFileIconClass(item.type);
-            
+
             const itemFolder = item.path !== undefined ? item.path : currentFolder;
             let metaText = formatSize(item.size);
             if (item.path !== undefined && item.path !== currentFolder) {
@@ -720,7 +777,7 @@ function renderFiles(items) {
             } else {
                 fileMeta.textContent = metaText;
             }
-            
+
             // Create thumbnail element for images (including iPhone formats)
             const isImage = (item.type && item.type.includes('image')) || item.name.match(/\.(heic|heif)$/i);
             if (isImage) {
@@ -728,56 +785,36 @@ function renderFiles(items) {
                 thumbnail.className = 'file-thumbnail';
                 thumbnail.alt = '';
                 thumbnail.loading = 'lazy'; // Lazy load thumbnails
-                
+
                 // Add loading class initially (show loading state)
                 thumbnail.classList.add('loading');
-                
+                thumbnail.dataset.fileName = item.name;
+
                 // Load thumbnail using server-side thumbnail endpoint
-                // Server handles HEIC conversion and thumbnail generation
                 const filePath = itemFolder ? `${itemFolder}/${item.name}` : item.name;
                 const thumbnailUrl = `${API_BASE}/github/thumbnail?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}&size=200`;
-                
-                // Fetch thumbnail with authentication
-                fetch(thumbnailUrl, {
-                    headers: { 'Authorization': `Bearer ${ghToken}` }
-                })
-                .then(res => {
-                    if (!res.ok) throw new Error('Failed to load thumbnail');
-                    return res.blob();
-                })
-                .then(thumbnailBlob => {
-                    const objectUrl = URL.createObjectURL(thumbnailBlob);
-                    thumbnail.src = objectUrl;
-                    thumbnail.alt = item.name;
-                    thumbnail.classList.remove('loading');
-                    // Clean up blob URL when image is removed from DOM
-                    thumbnail.addEventListener('load', () => {
-                        // Revoke after a delay to ensure it's rendered
-                        setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
-                    });
-                })
-                .catch(err => {
-                    console.error('Thumbnail load error:', err);
-                    thumbnail.classList.remove('loading');
-                    thumbnail.style.display = 'none';
-                    fileIcon.style.display = 'block';
-                });
-                
+
+                thumbnail.dataset.thumbnailUrl = thumbnailUrl;
+
+                // Observe for lazy loading
+                thumbnailObserver.observe(thumbnail);
+
                 // Add error handler for img element
                 thumbnail.onerror = () => {
                     thumbnail.classList.remove('loading');
                     thumbnail.style.display = 'none';
                     fileIcon.style.display = 'block';
                 };
-                
+
                 card.appendChild(thumbnail);
-                
+
                 // Show thumbnail if toggle is enabled
                 if (showThumbnails) {
                     card.classList.add('show-thumbnail');
                 }
             }
-            
+
+
             card.appendChild(fileIcon);
             card.appendChild(fileName);
             card.appendChild(fileMeta);
@@ -956,9 +993,9 @@ async function handleUpload(files) {
     const progressText = document.getElementById('uploadProgressText');
     const uploadDetails = document.getElementById('uploadDetails');
     const cancelBtn = document.getElementById('cancelUploadBtn');
-    
+
     let uploadCancelled = false;
-    
+
     progressContainer.style.display = 'block';
     uploadBtn.disabled = true;
 
@@ -968,7 +1005,7 @@ async function handleUpload(files) {
         progressContainer.style.display = 'none';
         uploadBtn.disabled = false;
     };
-    
+
     cancelBtn.onclick = cancelUpload;
 
     try {
@@ -1009,7 +1046,7 @@ async function handleUpload(files) {
             progressText.textContent = `✓ Upload complete! ${uploadedCount} of ${totalFiles} files uploaded`;
             progressBar.style.width = '100%';
             uploadDetails.textContent = '';
-            
+
             // Hide progress after 2 seconds
             setTimeout(() => {
                 progressContainer.style.display = 'none';
@@ -1035,7 +1072,7 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
     currentViewedFile = { ...file, folder: folderOverride !== null ? folderOverride : currentFolder }; // Track for sharing
 
     const folderToUse = folderOverride !== null ? folderOverride : currentFolder;
-    
+
     // Show/hide edit button based on file type (including iPhone formats)
     if (editImageBtn) {
         const isEditableImage = file.type.includes('image') || file.name.match(/\.(heic|heif)$/i);
@@ -1063,7 +1100,92 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
     downloadLink.href = fileUrl;
 
     // Show loading state
-    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading preview...</p></div>';
+    viewerBody.innerHTML = '';
+
+    // Check if we have a thumbnail to show immediately
+    const isImageFile = file.type.includes('image') || file.name.match(/\.(heic|heif)$/i);
+    let thumbnailImg = null;
+
+    if (isImageFile && file.thumbnailUrl) {
+        // Create thumbnail image immediately
+        thumbnailImg = document.createElement('img');
+        thumbnailImg.style.width = '100%';
+        thumbnailImg.style.height = '100%';
+        thumbnailImg.style.objectFit = 'contain';
+        thumbnailImg.style.backgroundImage = `url(${file.thumbnailUrl})`;
+        thumbnailImg.style.backgroundSize = 'contain';
+        thumbnailImg.style.backgroundRepeat = 'no-repeat';
+        thumbnailImg.style.backgroundPosition = 'center';
+        thumbnailImg.style.filter = 'blur(10px)';
+        thumbnailImg.style.transition = 'filter 0.3s ease';
+
+        // Add spinner on top
+        const spinner = document.createElement('div');
+        spinner.className = 'viewer-spinner';
+        spinner.innerHTML = '<i class="fas fa-spinner fa-spin" style="color: white; font-size: 2rem; text-shadow: 0 0 5px rgba(0,0,0,0.5);"></i>';
+        spinner.style.position = 'absolute';
+        spinner.style.top = '50%';
+        spinner.style.left = '50%';
+        spinner.style.transform = 'translate(-50%, -50%)';
+        spinner.style.zIndex = '10';
+
+        viewerBody.appendChild(thumbnailImg);
+        viewerBody.appendChild(spinner);
+    } else if (isImageFile) {
+        // Thumbnail not available yet, fetch it immediately
+        viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading preview...</p></div>';
+
+        const filePath = folderToUse ? `${folderToUse}/${file.name}` : file.name;
+        const thumbnailUrl = `${API_BASE}/github/thumbnail?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}&size=200`;
+
+        fetch(thumbnailUrl, { headers: { 'Authorization': `Bearer ${ghToken}` } })
+            .then(res => {
+                if (res.ok) return res.blob();
+                throw new Error('Thumbnail failed');
+            })
+            .then(blob => {
+                const objectUrl = URL.createObjectURL(blob);
+                file.thumbnailUrl = objectUrl; // Cache it
+
+                // Check if we are still waiting for the full image
+                // The full image loader replaces viewerBody content on load.
+                // So if viewerBody still contains the empty-state loading message, we can swap it.
+                if (currentViewedFile && currentViewedFile.name === file.name) {
+                    const emptyState = viewerBody.querySelector('.empty-state');
+                    if (emptyState) {
+                        // Swap to thumbnail view
+                        viewerBody.innerHTML = '';
+
+                        const thumbnailImg = document.createElement('img');
+                        thumbnailImg.style.width = '100%';
+                        thumbnailImg.style.height = '100%';
+                        thumbnailImg.style.objectFit = 'contain';
+                        thumbnailImg.style.backgroundImage = `url(${file.thumbnailUrl})`;
+                        thumbnailImg.style.backgroundSize = 'contain';
+                        thumbnailImg.style.backgroundRepeat = 'no-repeat';
+                        thumbnailImg.style.backgroundPosition = 'center';
+                        thumbnailImg.style.filter = 'blur(10px)';
+                        thumbnailImg.style.transition = 'filter 0.3s ease';
+
+                        const spinner = document.createElement('div');
+                        spinner.className = 'viewer-spinner';
+                        spinner.innerHTML = '<i class="fas fa-spinner fa-spin" style="color: white; font-size: 2rem; text-shadow: 0 0 5px rgba(0,0,0,0.5);"></i>';
+                        spinner.style.position = 'absolute';
+                        spinner.style.top = '50%';
+                        spinner.style.left = '50%';
+                        spinner.style.transform = 'translate(-50%, -50%)';
+                        spinner.style.zIndex = '10';
+
+                        viewerBody.appendChild(thumbnailImg);
+                        viewerBody.appendChild(spinner);
+                    }
+                }
+            })
+            .catch(err => console.log('Thumbnail fetch failed/skipped', err));
+    } else {
+        // Default loading state
+        viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading preview...</p></div>';
+    }
 
     const isDoc = file.name.match(/\.(docx|doc|xlsx|xls|pptx|ppt|csv)$/i);
     const isText = file.name.match(/\.(txt|json|md|js|css|html)$/i);
@@ -1096,54 +1218,54 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
             if (isImageFile) {
                 // Check if it's HEIC/HEIF format and convert if needed
                 const isHEIC = blob.type.includes('heic') || blob.type.includes('heif') || file.name.match(/\.(heic|heif)$/i);
-                
+
                 if (isHEIC && typeof heic2any !== 'undefined') {
                     // Convert HEIC to JPEG
                     viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Converting HEIC image...</p></div>';
-                    
+
                     heic2any({
                         blob: blob,
                         toType: 'image/jpeg',
                         quality: 0.9
                     })
-                    .then(convertedBlob => {
-                        const convertedUrl = URL.createObjectURL(convertedBlob);
-                        const img = document.createElement('img');
-                        img.style.maxWidth = '100%';
-                        img.style.maxHeight = '100%';
-                        img.style.display = 'block';
-                        
-                        img.onload = () => {
-                            console.log('HEIC image converted and loaded successfully!');
-                            viewerBody.innerHTML = '';
-                            viewerBody.appendChild(img);
-                        };
-                        
-                        img.onerror = (e) => {
-                            console.error('Converted image failed to load:', e);
-                            viewerBody.innerHTML = `
+                        .then(convertedBlob => {
+                            const convertedUrl = URL.createObjectURL(convertedBlob);
+                            const img = document.createElement('img');
+                            img.style.maxWidth = '100%';
+                            img.style.maxHeight = '100%';
+                            img.style.display = 'block';
+
+                            img.onload = () => {
+                                console.log('HEIC image converted and loaded successfully!');
+                                viewerBody.innerHTML = '';
+                                viewerBody.appendChild(img);
+                            };
+
+                            img.onerror = (e) => {
+                                console.error('Converted image failed to load:', e);
+                                viewerBody.innerHTML = `
                                 <div class="empty-state">
                                     <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
                                     <p style="color:red">Failed to display converted image</p>
                                     <p style="font-size: 0.85rem; color: #666;">Try downloading the file instead</p>
                                 </div>`;
-                        };
-                        
-                        img.src = convertedUrl;
-                    })
-                    .catch(err => {
-                        console.error('HEIC conversion failed:', err);
-                        viewerBody.innerHTML = `
+                            };
+
+                            img.src = convertedUrl;
+                        })
+                        .catch(err => {
+                            console.error('HEIC conversion failed:', err);
+                            viewerBody.innerHTML = `
                             <div class="empty-state">
                                 <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
                                 <p style="color:red">Failed to convert HEIC image</p>
                                 <p style="font-size: 0.85rem; color: #666;">${err.message || 'Conversion error'}</p>
                                 <p style="font-size: 0.85rem; color: #666;">Try downloading the file instead</p>
                             </div>`;
-                    });
+                        });
                     return; // Exit early, conversion is async
                 }
-                
+
                 // Regular image display
                 const img = document.createElement('img');
                 img.style.maxWidth = '100%';
@@ -1154,6 +1276,13 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     console.log('Image loaded successfully!');
                     viewerBody.innerHTML = '';
                     viewerBody.appendChild(img);
+
+                    // Remove blur after a short delay to allow transition
+                    // Since we replaced the body, the old blurred thumbnail is gone.
+                    // But if we want to keep the transition effect, we should have appended the new image
+                    // and then removed the old one.
+                    // However, the simple approach of showing the new image is fine for now
+                    // as the thumbnail was already shown as a placeholder.
                 };
 
                 img.onerror = (e) => {
@@ -1161,13 +1290,13 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     console.error('Image src:', img.src);
                     console.error('Blob type:', blob.type);
                     console.error('Blob size:', blob.size);
-                    
+
                     // Check if it's a HEIC/HEIF file
                     const isHEIC = file.name.match(/\.(heic|heif)$/i);
-                    const errorMessage = isHEIC 
+                    const errorMessage = isHEIC
                         ? 'HEIC/HEIF format not supported in browser. Please download the file or convert it to JPG/PNG.'
                         : 'Failed to display image';
-                    
+
                     viewerBody.innerHTML = `
                         <div class="empty-state">
                             <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
@@ -1182,11 +1311,11 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
             } else if (file.type === 'application/pdf') {
                 // Check if mobile device
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-                
+
                 if (isMobile) {
                     // Use Google Docs Viewer for mobile devices
                     viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading PDF viewer...</p></div>';
-                    
+
                     generateTempShareLink(file, folderToUse)
                         .then(shareUrl => {
                             const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
@@ -1272,13 +1401,13 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                             console.log('Generated share URL:', shareUrl);
                             const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
                             console.log('Google Viewer URL:', googleViewerUrl);
-                            
+
                             const iframe = document.createElement('iframe');
                             iframe.src = googleViewerUrl;
                             iframe.style.width = '100%';
                             iframe.style.height = '100%';
                             iframe.style.border = 'none';
-                            
+
                             // Add error handler for iframe
                             iframe.onerror = () => {
                                 console.error('Iframe failed to load');
@@ -1291,10 +1420,10 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                                         </a>
                                     </div>`;
                             };
-                            
+
                             viewerBody.innerHTML = '';
                             viewerBody.appendChild(iframe);
-                            
+
                             // Add timeout fallback
                             setTimeout(() => {
                                 if (viewerBody.querySelector('iframe') && viewerBody.querySelector('iframe').src === googleViewerUrl) {
@@ -1347,21 +1476,21 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                 } else {
                     // Public server: try Google Docs Viewer for all file types
                     viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading document viewer...</p></div>';
-                    
+
                     generateTempShareLink(file, folderToUse)
                         .then(shareUrl => {
                             console.log('Generated share URL for file:', shareUrl);
                             const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
-                            
+
                             const iframe = document.createElement('iframe');
                             iframe.src = googleViewerUrl;
                             iframe.style.width = '100%';
                             iframe.style.height = '100%';
                             iframe.style.border = 'none';
-                            
+
                             viewerBody.innerHTML = '';
                             viewerBody.appendChild(iframe);
-                            
+
                             // Add fallback after timeout
                             setTimeout(() => {
                                 const fallbackDiv = document.createElement('div');
@@ -1517,7 +1646,7 @@ generateLinkBtn.onclick = async () => {
 // Helper function to generate temporary share link for Google Docs Viewer
 async function generateTempShareLink(file, folder) {
     const filePath = folder ? `${folder}/${file.name}` : file.name;
-    
+
     const res = await fetch(`${API_BASE}/share/create`, {
         method: 'POST',
         headers: {
@@ -1532,11 +1661,11 @@ async function generateTempShareLink(file, folder) {
             expirationHours: 0.25 // 15 minutes for preview
         })
     });
-    
+
     if (!res.ok) {
         throw new Error('Failed to create share link');
     }
-    
+
     const data = await res.json();
     // Return the download URL (without download=true parameter for inline viewing)
     return data.url + '/download';
@@ -1580,7 +1709,7 @@ if (qrCodeBtn) {
         if (qrCodeContainer.style.display === 'none') {
             // Clear previous QR code
             qrCodeCanvas.innerHTML = '';
-            
+
             // Generate and show QR code
             try {
                 qrCodeInstance = new QRCode(qrCodeCanvas, {
@@ -1591,14 +1720,14 @@ if (qrCodeBtn) {
                     colorLight: '#ffffff',
                     correctLevel: QRCode.CorrectLevel.M
                 });
-                
+
                 // Center the QR code
                 const qrImg = qrCodeCanvas.querySelector('img') || qrCodeCanvas.querySelector('canvas');
                 if (qrImg) {
                     qrImg.style.display = 'block';
                     qrImg.style.margin = '0 auto';
                 }
-                
+
                 qrCodeContainer.style.display = 'block';
                 qrCodeBtn.innerHTML = '<i class="fas fa-times"></i>';
                 qrCodeBtn.title = 'Hide QR Code';
@@ -1642,10 +1771,10 @@ function toggleFileSelection(itemName) {
 function updateBulkActionsBar() {
     const bulkActionsBar = document.getElementById('bulkActionsBar');
     const selectedCount = document.getElementById('selectedCount');
-    
+
     console.log('updateBulkActionsBar called, selectedFiles.size:', selectedFiles.size);
     console.log('bulkActionsBar element:', bulkActionsBar);
-    
+
     if (selectedFiles.size > 0) {
         selectionMode = true;
         bulkActionsBar.classList.add('active');
@@ -1689,14 +1818,14 @@ document.getElementById('deselectAllBtn')?.addEventListener('click', () => {
 
 document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => {
     if (selectedFiles.size === 0) return;
-    
+
     if (!confirm(`Are you sure you want to delete ${selectedFiles.size} item(s)? This action cannot be undone.`)) {
         return;
     }
 
     const items = Array.from(selectedFiles);
     let successCount = 0;
-    
+
     showProcessing(`Deleting ${items.length} item(s)...`);
 
     try {
@@ -1712,7 +1841,7 @@ document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => 
             }
             return Promise.resolve(false);
         });
-        
+
         await Promise.all(deletePromises);
 
         alert(`Deleted ${successCount} of ${items.length} item(s)`);
@@ -1751,7 +1880,7 @@ async function deleteItemAPI(itemName, isDirectory, retries = 5, skipProcessingI
     if (!skipProcessingIndicator) {
         showProcessing(`Deleting ${isDirectory ? 'folder' : 'file'}...`);
     }
-    
+
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
@@ -1777,7 +1906,7 @@ async function deleteItemAPI(itemName, isDirectory, retries = 5, skipProcessingI
                 return true;
             } else {
                 console.warn(`Attempt ${attempt}/${retries} failed for delete ${itemName} (Status: ${res.status})`);
-                
+
                 if (attempt < retries) {
                     const delay = Math.pow(2, attempt - 1) * 1000;
                     console.log(`Retrying delete in ${delay}ms...`);
@@ -1792,7 +1921,7 @@ async function deleteItemAPI(itemName, isDirectory, retries = 5, skipProcessingI
             }
         } catch (err) {
             console.error(`Delete attempt ${attempt}/${retries} failed:`, err);
-            
+
             if (attempt < retries) {
                 const delay = Math.pow(2, attempt - 1) * 1000;
                 console.log(`Network error. Retrying delete in ${delay}ms...`);
@@ -1806,7 +1935,7 @@ async function deleteItemAPI(itemName, isDirectory, retries = 5, skipProcessingI
             }
         }
     }
-    
+
     if (!skipProcessingIndicator) {
         hideProcessing();
     }
@@ -1822,14 +1951,14 @@ async function renameItem(itemName, isDirectory) {
     const existingNames = currentFiles
         .filter(item => item.isDirectory === isDirectory)
         .map(item => item.name);
-    
+
     if (existingNames.includes(newName.trim())) {
         alert(`A ${isDirectory ? 'folder' : 'file'} with this name already exists!`);
         return;
     }
 
     showProcessing(`Renaming ${isDirectory ? 'folder' : 'file'}...`);
-    
+
     const retries = 5;
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
@@ -1856,7 +1985,7 @@ async function renameItem(itemName, isDirectory) {
                 return;
             } else {
                 console.warn(`Attempt ${attempt}/${retries} failed for rename ${itemName} (Status: ${res.status})`);
-                
+
                 if (attempt < retries) {
                     const delay = Math.pow(2, attempt - 1) * 1000;
                     console.log(`Retrying rename in ${delay}ms...`);
@@ -1869,7 +1998,7 @@ async function renameItem(itemName, isDirectory) {
             }
         } catch (err) {
             console.error(`Rename attempt ${attempt}/${retries} failed:`, err);
-            
+
             if (attempt < retries) {
                 const delay = Math.pow(2, attempt - 1) * 1000;
                 console.log(`Network error. Retrying rename in ${delay}ms...`);
@@ -1881,14 +2010,14 @@ async function renameItem(itemName, isDirectory) {
             }
         }
     }
-    
+
     hideProcessing();
 }
 
 // Drag and drop handlers
 function handleDragStart(e, item) {
     e.dataTransfer.effectAllowed = 'move';
-    
+
     // Check if this item is part of a selection
     if (selectedFiles.has(item.name)) {
         // Dragging multiple selected items
@@ -1896,19 +2025,19 @@ function handleDragStart(e, item) {
             const fileItem = currentFiles.find(f => f.name === name);
             return { name, isDirectory: fileItem ? fileItem.isDirectory : false };
         });
-        e.dataTransfer.setData('text/plain', JSON.stringify({ 
+        e.dataTransfer.setData('text/plain', JSON.stringify({
             multiple: true,
             items: selectedItems
         }));
     } else {
         // Dragging single item
-        e.dataTransfer.setData('text/plain', JSON.stringify({ 
+        e.dataTransfer.setData('text/plain', JSON.stringify({
             multiple: false,
-            name: item.name, 
-            isDirectory: item.isDirectory 
+            name: item.name,
+            isDirectory: item.isDirectory
         }));
     }
-    
+
     e.currentTarget.classList.add('dragging');
 }
 
@@ -1929,34 +2058,34 @@ function handleDragLeave(e) {
 async function handleDrop(e, targetFolder) {
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
-    
+
     try {
         const data = JSON.parse(e.dataTransfer.getData('text/plain'));
         const targetPath = currentFolder ? `${currentFolder}/${targetFolder.name}` : targetFolder.name;
-        
+
         if (data.multiple) {
             // Moving multiple selected items
             const items = data.items;
-            
+
             // Don't allow dropping on any of the selected items
             if (items.some(item => item.name === targetFolder.name)) return;
-            
+
             if (confirm(`Move ${items.length} item(s) to "${targetFolder.name}"?`)) {
                 showProcessing(`Moving ${items.length} item(s)...`);
                 let successCount = 0;
-                
+
                 try {
                     // Process all moves in parallel for speed
-                    const movePromises = items.map(item => 
+                    const movePromises = items.map(item =>
                         moveOrCopyItem(item.name, targetPath, 'move', item.isDirectory, 5, true) // Skip individual processing indicators
                             .then(success => {
                                 if (success) successCount++;
                                 return success;
                             })
                     );
-                    
+
                     await Promise.all(movePromises);
-                    
+
                     alert(`Moved ${successCount} of ${items.length} item(s)`);
                 } finally {
                     hideProcessing();
@@ -1969,10 +2098,10 @@ async function handleDrop(e, targetFolder) {
             // Moving single item
             const sourceName = data.name;
             const isDirectory = data.isDirectory;
-            
+
             // Don't allow dropping on self
             if (sourceName === targetFolder.name) return;
-            
+
             if (confirm(`Move "${sourceName}" to "${targetFolder.name}"?`)) {
                 const success = await moveOrCopyItem(sourceName, targetPath, 'move', isDirectory);
                 if (success) {
@@ -2002,31 +2131,31 @@ async function handleSidebarDrop(e, targetFolderPath) {
     e.preventDefault();
     e.currentTarget.style.background = '';
     e.currentTarget.style.color = '';
-    
+
     try {
         const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-        
+
         if (data.multiple) {
             // Moving multiple selected items
             const items = data.items;
             const targetName = targetFolderPath === '' ? 'Home' : targetFolderPath.split('/').pop();
-            
+
             if (confirm(`Move ${items.length} item(s) to "${targetName}"?`)) {
                 showProcessing(`Moving ${items.length} item(s)...`);
                 let successCount = 0;
-                
+
                 try {
                     // Process all moves in parallel for speed
-                    const movePromises = items.map(item => 
+                    const movePromises = items.map(item =>
                         moveOrCopyItem(item.name, targetFolderPath, 'move', item.isDirectory, 5, true) // Skip individual processing indicators
                             .then(success => {
                                 if (success) successCount++;
                                 return success;
                             })
                     );
-                    
+
                     await Promise.all(movePromises);
-                    
+
                     alert(`Moved ${successCount} of ${items.length} item(s)`);
                 } finally {
                     hideProcessing();
@@ -2041,7 +2170,7 @@ async function handleSidebarDrop(e, targetFolderPath) {
             const sourceName = data.name;
             const isDirectory = data.isDirectory;
             const targetName = targetFolderPath === '' ? 'Home' : targetFolderPath.split('/').pop();
-            
+
             if (confirm(`Move "${sourceName}" to "${targetName}"?`)) {
                 const success = await moveOrCopyItem(sourceName, targetFolderPath, 'move', isDirectory);
                 if (success) {
@@ -2068,17 +2197,17 @@ async function showFolderSelectionModal(operation) {
     selectedDestFolders.clear(); // Clear previous selections
     const title = document.getElementById('folderSelectionTitle');
     title.textContent = `Select Destination Folders (${operation === 'move' ? 'Move' : 'Copy'})`;
-    
+
     // Show modal immediately with loading state
     folderSelectionModal.classList.remove('hidden');
-    
+
     // Show loading indicator
     const folderTree = document.getElementById('folderTree');
     folderTree.innerHTML = '<div style="padding: 2rem; text-align: center;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-color);"></i><p style="margin-top: 1rem; color: #6b7280;">Loading folders...</p></div>';
-    
+
     // Update counter
     updateSelectedFoldersCount();
-    
+
     // Load all folders asynchronously
     await renderFolderTree();
 }
@@ -2086,7 +2215,7 @@ async function showFolderSelectionModal(operation) {
 async function renderFolderTree() {
     const folderTree = document.getElementById('folderTree');
     folderTree.innerHTML = '';
-    
+
     try {
         // Add Home folder
         const homeDiv = document.createElement('div');
@@ -2097,7 +2226,7 @@ async function renderFolderTree() {
         homeDiv.style.padding = '0.5rem';
         homeDiv.style.cursor = 'pointer';
         homeDiv.dataset.folder = '';
-        
+
         const homeCheckbox = document.createElement('input');
         homeCheckbox.type = 'checkbox';
         homeCheckbox.style.cursor = 'pointer';
@@ -2105,15 +2234,15 @@ async function renderFolderTree() {
             e.stopPropagation();
             toggleDestFolder('');
         };
-        
+
         const homeLabel = document.createElement('span');
         homeLabel.innerHTML = '<i class="fas fa-home"></i> Home';
         homeLabel.style.flex = '1';
-        
+
         homeDiv.appendChild(homeCheckbox);
         homeDiv.appendChild(homeLabel);
         homeDiv.onclick = () => toggleDestFolder('');
-        
+
         // Disable if current folder is home
         if (currentFolder === '') {
             homeDiv.style.opacity = '0.5';
@@ -2122,9 +2251,9 @@ async function renderFolderTree() {
             homeCheckbox.disabled = true;
             homeDiv.title = 'Cannot move/copy to current folder';
         }
-        
+
         folderTree.appendChild(homeDiv);
-        
+
         // Get all folders recursively
         const folders = await fetchAllFolders();
         folders.forEach(folder => {
@@ -2138,7 +2267,7 @@ async function renderFolderTree() {
             div.style.padding = '0.5rem';
             div.style.cursor = 'pointer';
             div.dataset.folder = folder;
-            
+
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.style.cursor = 'pointer';
@@ -2146,15 +2275,15 @@ async function renderFolderTree() {
                 e.stopPropagation();
                 toggleDestFolder(folder);
             };
-            
+
             const label = document.createElement('span');
             label.innerHTML = `<i class="fas fa-folder"></i> ${folder.split('/').pop()}`;
             label.style.flex = '1';
-            
+
             div.appendChild(checkbox);
             div.appendChild(label);
             div.onclick = () => toggleDestFolder(folder);
-            
+
             // Disable if it's the current folder
             if (folder === currentFolder) {
                 div.style.opacity = '0.5';
@@ -2163,7 +2292,7 @@ async function renderFolderTree() {
                 checkbox.disabled = true;
                 div.title = 'Cannot move/copy to current folder';
             }
-            
+
             folderTree.appendChild(div);
         });
     } catch (err) {
@@ -2178,7 +2307,7 @@ function toggleDestFolder(folder) {
     } else {
         selectedDestFolders.add(folder);
     }
-    
+
     // Update checkboxes
     document.querySelectorAll('.folder-tree-item').forEach(el => {
         const elFolder = el.dataset.folder;
@@ -2186,7 +2315,7 @@ function toggleDestFolder(folder) {
         if (checkbox && !checkbox.disabled) {
             checkbox.checked = selectedDestFolders.has(elFolder);
         }
-        
+
         // Highlight selected folders
         if (selectedDestFolders.has(elFolder)) {
             el.style.background = 'var(--hover-bg)';
@@ -2194,7 +2323,7 @@ function toggleDestFolder(folder) {
             el.style.background = '';
         }
     });
-    
+
     updateSelectedFoldersCount();
 }
 
@@ -2210,7 +2339,7 @@ async function fetchAllFolders(path = '') {
     try {
         const items = await fetchGitHubFiles(path);
         const folders = [];
-        
+
         // Collect all immediate subfolders
         const subfolderPaths = [];
         for (const item of items) {
@@ -2220,18 +2349,18 @@ async function fetchAllFolders(path = '') {
                 subfolderPaths.push(folderPath);
             }
         }
-        
+
         // Fetch all subfolders in parallel for better performance
         if (subfolderPaths.length > 0) {
             const subfolderPromises = subfolderPaths.map(folderPath => fetchAllFolders(folderPath));
             const subfolderResults = await Promise.all(subfolderPromises);
-            
+
             // Flatten and add all nested folders
             subfolderResults.forEach(subFolders => {
                 folders.push(...subFolders);
             });
         }
-        
+
         return folders;
     } catch (err) {
         console.error('Error fetching folders:', err);
@@ -2254,20 +2383,20 @@ confirmFolderSelection?.addEventListener('click', async () => {
         alert('Please select at least one destination folder');
         return;
     }
-    
+
     folderSelectionModal.classList.add('hidden');
-    
+
     const items = Array.from(selectedFiles);
     const destFolders = Array.from(selectedDestFolders);
     const totalOperations = items.length * destFolders.length;
     let successCount = 0;
-    
+
     showProcessing(`${folderSelectionOperation === 'move' ? 'Moving' : 'Copying'} ${items.length} item(s) to ${destFolders.length} folder(s)...`);
 
     try {
         // Process all operations in parallel for speed
         const operations = [];
-        
+
         for (const destFolder of destFolders) {
             for (const itemName of items) {
                 const item = currentFiles.find(f => f.name === itemName);
@@ -2282,7 +2411,7 @@ confirmFolderSelection?.addEventListener('click', async () => {
                 }
             }
         }
-        
+
         // Wait for all operations to complete
         await Promise.all(operations);
 
@@ -2300,7 +2429,7 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retr
     if (!skipProcessingIndicator) {
         showProcessing(`${operation === 'move' ? 'Moving' : 'Copying'} ${isDirectory ? 'folder' : 'file'}...`);
     }
-    
+
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             const sourcePath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
@@ -2330,7 +2459,7 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retr
                 // If it's not a network error (4xx, 5xx), retry
                 const statusCode = res.status;
                 console.warn(`Attempt ${attempt}/${retries} failed for ${operation} ${itemName} (Status: ${statusCode})`);
-                
+
                 if (attempt < retries) {
                     // Exponential backoff: wait 1s, 2s, 4s, 8s
                     const delay = Math.pow(2, attempt - 1) * 1000;
@@ -2347,7 +2476,7 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retr
         } catch (err) {
             // Network error or exception
             console.error(`Attempt ${attempt}/${retries} failed with error:`, err);
-            
+
             if (attempt < retries) {
                 // Exponential backoff: wait 1s, 2s, 4s, 8s
                 const delay = Math.pow(2, attempt - 1) * 1000;
@@ -2362,7 +2491,7 @@ async function moveOrCopyItem(itemName, destFolder, operation, isDirectory, retr
             }
         }
     }
-    
+
     if (!skipProcessingIndicator) {
         hideProcessing();
     }
@@ -2391,7 +2520,7 @@ function initializeImageEditor() {
             ghBranch: ghBranch,
             currentFolder: currentFolder
         });
-        
+
         // Set up edit button click handler
         const editImageBtn = document.getElementById('editImageBtn');
         if (editImageBtn) {
