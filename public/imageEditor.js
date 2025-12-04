@@ -4,6 +4,7 @@ class ImageEditor {
         // DOM Elements
         this.modal = document.getElementById('imageEditorModal');
         this.canvas = document.getElementById('editorCanvas');
+        this.editorContainer = document.getElementById('editorContainer');
         
         // Buttons
         this.editBtn = document.getElementById('editImageBtn');
@@ -130,6 +131,20 @@ class ImageEditor {
     open(file) {
         this.currentFile = file;
         
+        // Show modal immediately with loading state
+        this.modal.classList.remove('hidden');
+        
+        // Hide viewer modal if open
+        const viewerModal = document.getElementById('viewerModal');
+        if (viewerModal) {
+            viewerModal.classList.add('hidden');
+        }
+        
+        // Show loading indicator in editor container
+        if (this.editorContainer) {
+            this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: white;"><i class="fas fa-spinner fa-spin" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Loading image for editing...</p></div>';
+        }
+        
         // Construct proper file path
         const folderPath = this.config.currentFolder || '';
         const filePath = folderPath ? `${folderPath}/${file.name}` : file.name;
@@ -155,6 +170,9 @@ class ImageEditor {
             if (isHEIC && typeof heic2any !== 'undefined') {
                 // Show conversion message
                 console.log('Converting HEIC image for editing...');
+                if (this.editorContainer) {
+                    this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: white;"><i class="fas fa-spinner fa-spin" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Converting HEIC image...</p></div>';
+                }
                 
                 return heic2any({
                     blob: blob,
@@ -177,13 +195,10 @@ class ImageEditor {
             const url = URL.createObjectURL(blob);
             this.originalImageUrl = url;
             
-            // Show modal
-            this.modal.classList.remove('hidden');
-            
-            // Hide viewer modal if open
-            const viewerModal = document.getElementById('viewerModal');
-            if (viewerModal) {
-                viewerModal.classList.add('hidden');
+            // Restore canvas in container
+            if (this.editorContainer) {
+                this.editorContainer.innerHTML = '<canvas id="editorCanvas" style="max-width: 100%; max-height: 100%; border: 2px solid var(--border-color);"></canvas>';
+                this.canvas = document.getElementById('editorCanvas');
             }
             
             // Initialize cropper with the image
@@ -191,7 +206,9 @@ class ImageEditor {
         })
         .catch(err => {
             console.error('Failed to load image for editing:', err);
-            alert('Failed to load image for editing: ' + err.message);
+            if (this.editorContainer) {
+                this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #ef4444;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Failed to load image for editing</p><p style="font-size: 0.9rem; margin-top: 0.5rem;">' + err.message + '</p></div>';
+            }
         });
     }
     

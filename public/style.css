@@ -1552,6 +1552,8 @@ span.breadcrumb-item:hover {
     justify-content: center;
     align-items: center;
     flex-direction: column;
+    position: relative;
+    touch-action: none; /* Prevent default touch behaviors for custom zoom */
 }
 
 [data-theme="dark"] .modal-body {
@@ -1563,6 +1565,11 @@ span.breadcrumb-item:hover {
     max-width: 100%;
     max-height: 100%;
     border: none;
+    object-fit: contain;
+}
+
+.modal-body img {
+    transform-origin: center center;
 }
 
 .modal-body iframe {
@@ -2590,6 +2597,71 @@ span.breadcrumb-item:hover {
 .zoom-controls .icon-btn {
     font-size: 0.9rem;
     padding: 0.25rem 0.5rem;
+}
+
+/* Bottom Zoom Controls */
+.zoom-controls-bottom {
+    position: absolute;
+    bottom: 3rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    padding: 0.75rem 1.5rem;
+    border-radius: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+[data-theme="dark"] .zoom-controls-bottom {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(10px);
+}
+
+.zoom-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 1.1rem;
+}
+
+.zoom-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.zoom-btn:active {
+    transform: scale(0.95);
+}
+
+.zoom-level-text {
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    min-width: 55px;
+    text-align: center;
+    user-select: none;
+    padding: 0 0.5rem;
+}
+
+[data-theme="dark"] .zoom-btn {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .zoom-level-text {
+    color: #e2e8f0;
 }
 
 .zoom-container {

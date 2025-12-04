@@ -1070,6 +1070,9 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
     viewerFileName.textContent = file.name;
     viewerModal.classList.remove('hidden');
     currentViewedFile = { ...file, folder: folderOverride !== null ? folderOverride : currentFolder }; // Track for sharing
+    
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
 
     const folderToUse = folderOverride !== null ? folderOverride : currentFolder;
 
@@ -1276,6 +1279,9 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     console.log('Image loaded successfully!');
                     viewerBody.innerHTML = '';
                     viewerBody.appendChild(img);
+                    
+                    // Add zoom functionality
+                    initializeImageZoom(img, viewerBody);
 
                     // Remove blur after a short delay to allow transition
                     // Since we replaced the body, the old blurred thumbnail is gone.
@@ -1537,6 +1543,26 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
 function closeViewer(updateUrl = true) {
     viewerModal.classList.add('hidden');
     viewerBody.innerHTML = '';
+    
+    // Re-enable background scrolling
+    document.body.style.overflow = '';
+    
+    // Reset and hide zoom controls
+    const zoomControls = document.getElementById('zoomControls');
+    if (zoomControls) {
+        zoomControls.style.opacity = '0';
+        setTimeout(() => {
+            zoomControls.style.display = 'none';
+        }, 300);
+    }
+    
+    // Reset zoom state if exists
+    if (window.viewerZoomState) {
+        if (window.viewerZoomState.cleanup) {
+            window.viewerZoomState.cleanup();
+        }
+        window.viewerZoomState = null;
+    }
 
     if (updateUrl && currentFolder) {
         const newUrl = `${window.location.pathname}?folder=${encodeURIComponent(currentFolder)}`;
@@ -2506,6 +2532,238 @@ initializeImageEditor();
 // Logout button event listener
 document.getElementById('logoutBtn')?.addEventListener('click', logout);
 
+// --- Image Zoom Functionality ---
+function initializeImageZoom(img, container) {
+    let scale = 1;
+    let posX = 0;
+    let posY = 0;
+    let isDragging = false;
+    let startX, startY;
+    
+    // Show zoom controls
+    const zoomControls = document.getElementById('zoomControls');
+    const zoomLevel = document.getElementById('zoomLevel');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomResetBtn = document.getElementById('zoomResetBtn');
+    
+    if (zoomControls) {
+        zoomControls.style.display = 'flex';
+        // Add fade-in effect
+        setTimeout(() => {
+            zoomControls.style.opacity = '1';
+        }, 100);
+    }
+    
+    // Make image transformable
+    img.style.cursor = 'grab';
+    img.style.userSelect = 'none';
+    img.style.transition = 'none';
+    
+    function updateTransform() {
+        img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+        img.style.transformOrigin = '0 0';
+        if (zoomLevel) {
+            zoomLevel.textContent = Math.round(scale * 100) + '%';
+        }
+    }
+    
+    function resetZoom() {
+        scale = 1;
+        posX = 0;
+        posY = 0;
+        img.style.transition = 'transform 0.3s ease';
+        updateTransform();
+        setTimeout(() => {
+            img.style.transition = 'none';
+        }, 300);
+    }
+    
+    function getImagePointAtClient(clientX, clientY) {
+        // Get container position
+        const containerRect = container.getBoundingClientRect();
+        
+        // Position relative to container
+        const x = clientX - containerRect.left;
+        const y = clientY - containerRect.top;
+        
+        // Convert to image coordinates (accounting for current transform)
+        const imageX = (x - posX) / scale;
+        const imageY = (y - posY) / scale;
+        
+        return { imageX, imageY, containerX: x, containerY: y };
+    }
+    
+    function zoomAtPoint(clientX, clientY, delta) {
+        const newScale = Math.min(Math.max(0.5, scale + delta), 5);
+        
+        if (newScale !== scale) {
+            // Get the point on the image under the cursor
+            const point = getImagePointAtClient(clientX, clientY);
+            
+            // Apply new scale
+            const oldScale = scale;
+            scale = newScale;
+            
+            // Adjust position so the same image point stays under the cursor
+            posX = point.containerX - point.imageX * scale;
+            posY = point.containerY - point.imageY * scale;
+            
+            updateTransform();
+        }
+    }
+    
+    // Zoom button handlers
+    if (zoomInBtn) {
+        zoomInBtn.onclick = (e) => {
+            e.stopPropagation();
+            const containerRect = container.getBoundingClientRect();
+            const centerX = containerRect.left + containerRect.width / 2;
+            const centerY = containerRect.top + containerRect.height / 2;
+            zoomAtPoint(centerX, centerY, 0.2);
+        };
+    }
+    
+    if (zoomOutBtn) {
+        zoomOutBtn.onclick = (e) => {
+            e.stopPropagation();
+            const containerRect = container.getBoundingClientRect();
+            const centerX = containerRect.left + containerRect.width / 2;
+            const centerY = containerRect.top + containerRect.height / 2;
+            zoomAtPoint(centerX, centerY, -0.2);
+        };
+    }
+    
+    if (zoomResetBtn) {
+        zoomResetBtn.onclick = (e) => {
+            e.stopPropagation();
+            resetZoom();
+        };
+    }
+    
+    // Mouse wheel zoom
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        zoomAtPoint(e.clientX, e.clientY, delta);
+    }, { passive: false });
+    
+    // Mouse drag
+    img.addEventListener('mousedown', (e) => {
+        if (scale > 1) {
+            isDragging = true;
+            startX = e.clientX - posX;
+            startY = e.clientY - posY;
+            img.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            posX = e.clientX - startX;
+            posY = e.clientY - startY;
+            updateTransform();
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            img.style.cursor = 'grab';
+        }
+    });
+    
+    // Touch gestures (pinch and pan)
+    let initialPinchDistance = 0;
+    let initialScale = 1;
+    let touches = [];
+    let touchStartTime = 0;
+    let pinchCenter = { x: 0, y: 0 };
+    
+    container.addEventListener('touchstart', (e) => {
+        touches = Array.from(e.touches);
+        touchStartTime = Date.now();
+        
+        if (touches.length === 2) {
+            // Pinch zoom start
+            e.preventDefault();
+            
+            pinchCenter.x = (touches[0].clientX + touches[1].clientX) / 2;
+            pinchCenter.y = (touches[0].clientY + touches[1].clientY) / 2;
+            
+            initialPinchDistance = Math.hypot(
+                touches[0].clientX - touches[1].clientX,
+                touches[0].clientY - touches[1].clientY
+            );
+            initialScale = scale;
+        } else if (touches.length === 1 && scale > 1) {
+            // Pan start
+            isDragging = true;
+            startX = touches[0].clientX - posX;
+            startY = touches[0].clientY - posY;
+        }
+    }, { passive: false });
+    
+    container.addEventListener('touchmove', (e) => {
+        touches = Array.from(e.touches);
+        
+        if (touches.length === 2) {
+            // Pinch zoom
+            e.preventDefault();
+            const currentDistance = Math.hypot(
+                touches[0].clientX - touches[1].clientX,
+                touches[0].clientY - touches[1].clientY
+            );
+            
+            const scaleDelta = (currentDistance / initialPinchDistance) - 1;
+            const newScale = Math.min(Math.max(0.5, initialScale + scaleDelta), 5);
+            
+            if (newScale !== scale) {
+                zoomAtPoint(pinchCenter.x, pinchCenter.y, newScale - scale);
+            }
+        } else if (touches.length === 1 && isDragging) {
+            // Pan
+            e.preventDefault();
+            posX = touches[0].clientX - startX;
+            posY = touches[0].clientY - startY;
+            updateTransform();
+        }
+    }, { passive: false });
+    
+    container.addEventListener('touchend', (e) => {
+        const touchDuration = Date.now() - touchStartTime;
+        
+        if (e.touches.length === 0) {
+            isDragging = false;
+            initialPinchDistance = 0;
+            
+            // Double-tap to reset zoom (only if touch was quick)
+            if (touchDuration < 300) {
+                const now = Date.now();
+                if (window.lastTouchEnd && now - window.lastTouchEnd < 300) {
+                    resetZoom();
+                }
+                window.lastTouchEnd = now;
+            }
+        }
+    });
+    
+    // Store zoom state
+    window.viewerZoomState = {
+        reset: resetZoom,
+        scale: () => scale,
+        cleanup: () => {
+            if (zoomControls) {
+                zoomControls.style.display = 'none';
+            }
+        }
+    };
+}
+
 // --- Image Editor Functions ---
 
 // Initialize Image Editor when DOM is ready
@@ -2526,9 +2784,23 @@ function initializeImageEditor() {
         if (editImageBtn) {
             editImageBtn.addEventListener('click', () => {
                 if (currentViewedFile) {
-                    // Update config with current folder before opening
-                    imageEditor.configure({ currentFolder: currentFolder });
-                    imageEditor.open(currentViewedFile);
+                    // Show loading indicator immediately
+                    const originalHTML = editImageBtn.innerHTML;
+                    editImageBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    editImageBtn.disabled = true;
+                    
+                    // Small delay to ensure UI updates
+                    setTimeout(() => {
+                        try {
+                            // Update config with current folder before opening
+                            imageEditor.configure({ currentFolder: currentFolder });
+                            imageEditor.open(currentViewedFile);
+                        } finally {
+                            // Restore button state
+                            editImageBtn.innerHTML = originalHTML;
+                            editImageBtn.disabled = false;
+                        }
+                    }, 50);
                 }
             });
         }

@@ -363,6 +363,27 @@ app.post('/api/github/create-repo', async (req, res) => {
     }
 });
 
+// Helper function to check if uploads folder exists and construct the appropriate path
+async function getRepoPath(octokit, owner, repo, branch, dirPath) {
+    try {
+        // Try uploads folder first
+        const targetPath = dirPath ? `uploads/${dirPath}` : 'uploads';
+        await octokit.rest.repos.getContent({
+            owner,
+            repo,
+            path: targetPath,
+            ref: branch || 'main'
+        });
+        return { path: targetPath, useRootFallback: false };
+    } catch (err) {
+        if (err.status === 404 && (!dirPath || dirPath === '')) {
+            // uploads folder doesn't exist, use root
+            return { path: '', useRootFallback: true };
+        }
+        throw err;
+    }
+}
+
 // List Files (from 'uploads' folder)
 app.get('/api/github/files', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -381,8 +402,48 @@ app.get('/api/github/files', async (req, res) => {
             await logActivity('repository', userData.login, `${owner}/${repo}`);
         }
         
-        // We prefix everything with 'uploads/' to keep the repo clean
-        const targetPath = dirPath ? `uploads/${dirPath}` : 'uploads';
+        // Check if uploads folder exists in this repo
+        let hasUploadsFolder = false;
+        let useRootFallback = false;
+        
+        // Only check for uploads folder existence when at root level
+        if (!dirPath || dirPath === '') {
+            try {
+                await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: 'uploads',
+                    ref: branch || 'main'
+                });
+                hasUploadsFolder = true;
+            } catch (err) {
+                if (err.status === 404) {
+                    hasUploadsFolder = false;
+                    useRootFallback = true;
+                }
+            }
+        } else {
+            // For subfolders, check if the path starts with a root-level folder
+            // by trying with uploads/ prefix first
+            try {
+                await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: 'uploads',
+                    ref: branch || 'main'
+                });
+                hasUploadsFolder = true;
+            } catch (err) {
+                if (err.status === 404) {
+                    hasUploadsFolder = false;
+                }
+            }
+        }
+        
+        // Construct the target path based on whether uploads folder exists
+        const targetPath = hasUploadsFolder 
+            ? (dirPath ? `uploads/${dirPath}` : 'uploads')
+            : (dirPath || '');
 
         let data;
         try {
@@ -395,7 +456,6 @@ app.get('/api/github/files', async (req, res) => {
             data = response.data;
         } catch (err) {
             if (err.status === 404) {
-                // Folder doesn't exist yet, return empty
                 return res.json([]);
             }
             throw err;
@@ -412,7 +472,8 @@ app.get('/api/github/files', async (req, res) => {
             size: item.size,
             date: null, // GitHub API doesn't give mtime in simple list
             type: item.type === 'dir' ? 'folder' : (mime.lookup(item.name) || 'application/octet-stream'),
-            path: dirPath // Relative path for frontend context
+            path: dirPath, // Relative path for frontend context
+            isRootPath: useRootFallback // Flag to indicate this is from root directory
         }));
 
         // Sort
@@ -437,11 +498,32 @@ app.post('/api/github/upload', upload.array('files'), async (req, res) => {
 
     try {
         const octokit = getOctokit(token);
+        
+        // Check if uploads folder exists
+        let hasUploadsFolder = false;
+        try {
+            await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: 'uploads',
+                ref: branch || 'main'
+            });
+            hasUploadsFolder = true;
+        } catch (err) {
+            if (err.status === 404) {
+                hasUploadsFolder = false;
+            }
+        }
+        
         const results = [];
 
         for (const file of req.files) {
             const content = fs.readFileSync(file.path, { encoding: 'base64' });
-            const filePath = folder ? `uploads/${folder}/${file.originalname}` : `uploads/${file.originalname}`;
+            
+            // Construct path based on whether uploads folder exists
+            const filePath = hasUploadsFolder
+                ? (folder ? `uploads/${folder}/${file.originalname}` : `uploads/${file.originalname}`)
+                : (folder ? `${folder}/${file.originalname}` : file.originalname);
 
             // Check if file exists to get SHA for update
             let sha;
@@ -488,7 +570,27 @@ app.post('/api/github/create-folder', async (req, res) => {
 
     try {
         const octokit = getOctokit(token);
-        const newFolderPath = folder ? `uploads/${folder}/${name}` : `uploads/${name}`;
+        
+        // Check if uploads folder exists
+        let hasUploadsFolder = false;
+        try {
+            await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: 'uploads',
+                ref: branch || 'main'
+            });
+            hasUploadsFolder = true;
+        } catch (err) {
+            if (err.status === 404) {
+                hasUploadsFolder = false;
+            }
+        }
+        
+        // Construct path based on whether uploads folder exists
+        const newFolderPath = hasUploadsFolder
+            ? (folder ? `uploads/${folder}/${name}` : `uploads/${name}`)
+            : (folder ? `${folder}/${name}` : name);
         const keepFilePath = `${newFolderPath}/.keep`;
 
         await octokit.rest.repos.createOrUpdateFileContents({
@@ -839,9 +941,27 @@ app.get('/api/github/view', async (req, res) => {
 
     try {
         const octokit = getOctokit(token);
-        // If filePath doesn't start with uploads/, add it (unless it's a raw full path request)
-        // Actually, frontend usually sends relative path.
-        const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
+        
+        // Check if uploads folder exists
+        let hasUploadsFolder = false;
+        try {
+            await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: 'uploads',
+                ref: branch || 'main'
+            });
+            hasUploadsFolder = true;
+        } catch (err) {
+            if (err.status === 404) {
+                hasUploadsFolder = false;
+            }
+        }
+        
+        // Construct path based on whether uploads folder exists
+        const fullPath = hasUploadsFolder
+            ? (filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`)
+            : filePath;
 
         // Get file metadata and content
         const response = await octokit.rest.repos.getContent({
@@ -901,7 +1021,27 @@ app.get('/api/github/thumbnail', async (req, res) => {
 
     try {
         const octokit = getOctokit(token);
-        const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
+        
+        // Check if uploads folder exists
+        let hasUploadsFolder = false;
+        try {
+            await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: 'uploads',
+                ref: branch || 'main'
+            });
+            hasUploadsFolder = true;
+        } catch (err) {
+            if (err.status === 404) {
+                hasUploadsFolder = false;
+            }
+        }
+        
+        // Construct path based on whether uploads folder exists
+        const fullPath = hasUploadsFolder
+            ? (filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`)
+            : filePath;
 
         // Get file metadata and content
         const response = await octokit.rest.repos.getContent({

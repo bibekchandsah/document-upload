@@ -130,16 +130,6 @@
             <div class="modal-header">
                 <h3 id="viewerFileName">Document Name</h3>
                 <div class="modal-actions">
-                    <div id="zoomControls" class="zoom-controls" style="display: none; margin-right: 10px;">
-                        <button id="zoomOutBtn" class="icon-btn" title="Zoom Out"><i
-                                class="fas fa-search-minus"></i></button>
-                        <span id="zoomLevel"
-                            style="font-size: 0.85rem; min-width: 45px; text-align: center; display: inline-block;">100%</span>
-                        <button id="zoomInBtn" class="icon-btn" title="Zoom In"><i
-                                class="fas fa-search-plus"></i></button>
-                        <button id="zoomResetBtn" class="icon-btn" title="Reset Zoom"><i
-                                class="fas fa-compress"></i></button>
-                    </div>
                     <button id="editImageBtn" class="icon-btn" title="Edit" style="display: none;"><i
                             class="fas fa-edit"></i></button>
                     <button id="shareBtn" class="icon-btn" title="Share"><i class="fas fa-share-alt"></i></button>
@@ -150,6 +140,13 @@
             </div>
             <div class="modal-body" id="viewerBody">
                 <!-- Content (Iframe or Image) goes here -->
+            </div>
+            <!-- Zoom Controls at Bottom Center -->
+            <div id="zoomControls" class="zoom-controls-bottom" style="display: none;">
+                <button id="zoomOutBtn" class="zoom-btn" title="Zoom Out"><i class="fas fa-search-minus"></i></button>
+                <span id="zoomLevel" class="zoom-level-text">100%</span>
+                <button id="zoomInBtn" class="zoom-btn" title="Zoom In"><i class="fas fa-search-plus"></i></button>
+                <button id="zoomResetBtn" class="zoom-btn" title="Reset Zoom"><i class="fas fa-compress-arrows-alt"></i></button>
             </div>
         </div>
     </div>
