@@ -2602,7 +2602,7 @@ span.breadcrumb-item:hover {
 /* Bottom Zoom Controls */
 .zoom-controls-bottom {
     position: absolute;
-    bottom: 3rem;
+    bottom: 4rem;
     left: 50%;
     transform: translateX(-50%);
     display: flex;

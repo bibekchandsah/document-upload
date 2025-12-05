@@ -128,10 +128,10 @@ class ImageEditor {
         });
     }
     
-    open(file) {
+    open(file, preloadedBlob = null) {
         this.currentFile = file;
         
-        // Show modal immediately with loading state
+        // Show modal immediately
         this.modal.classList.remove('hidden');
         
         // Hide viewer modal if open
@@ -140,7 +140,14 @@ class ImageEditor {
             viewerModal.classList.add('hidden');
         }
         
-        // Show loading indicator in editor container
+        // If we have a preloaded blob, use it directly
+        if (preloadedBlob) {
+            console.log('Using preloaded image blob for editing');
+            this.loadImageFromBlob(preloadedBlob);
+            return;
+        }
+        
+        // Otherwise, show loading indicator and fetch the image
         if (this.editorContainer) {
             this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: white;"><i class="fas fa-spinner fa-spin" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Loading image for editing...</p></div>';
         }
@@ -163,53 +170,57 @@ class ImageEditor {
             }
             return res.blob();
         })
-        .then(blob => {
-            // Check if it's HEIC/HEIF format and convert if needed
-            const isHEIC = blob.type.includes('heic') || blob.type.includes('heif') || file.name.match(/\.(heic|heif)$/i);
-            
-            if (isHEIC && typeof heic2any !== 'undefined') {
-                // Show conversion message
-                console.log('Converting HEIC image for editing...');
-                if (this.editorContainer) {
-                    this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: white;"><i class="fas fa-spinner fa-spin" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Converting HEIC image...</p></div>';
-                }
-                
-                return heic2any({
-                    blob: blob,
-                    toType: 'image/jpeg',
-                    quality: 0.9
-                })
-                .then(convertedBlob => {
-                    console.log('HEIC converted successfully for editing');
-                    return convertedBlob;
-                })
-                .catch(err => {
-                    console.error('HEIC conversion failed:', err);
-                    throw new Error('Failed to convert HEIC image: ' + err.message);
-                });
+        .then(blob => this.loadImageFromBlob(blob))
+        .catch(err => {
+            console.error('Failed to load image for editing:', err);
+            if (this.editorContainer) {
+                this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: white;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem; color: #ef4444;"></i><p style="color: #ef4444;">Failed to load image</p><p style="font-size: 0.85rem; color: #999;">' + err.message + '</p></div>';
             }
-            
-            return blob;
-        })
-        .then(blob => {
-            const url = URL.createObjectURL(blob);
+        });
+    }
+    
+    loadImageFromBlob(blob) {
+        // Check if it's HEIC/HEIF format and convert if needed
+        const isHEIC = blob.type.includes('heic') || blob.type.includes('heif') || this.currentFile.name.match(/\.(heic|heif)$/i);
+        
+        const processBlob = (finalBlob) => {
+            const url = URL.createObjectURL(finalBlob);
             this.originalImageUrl = url;
             
             // Restore canvas in container
             if (this.editorContainer) {
                 this.editorContainer.innerHTML = '<canvas id="editorCanvas" style="max-width: 100%; max-height: 100%; border: 2px solid var(--border-color);"></canvas>';
+                // Re-initialize cropper with the saved image
                 this.canvas = document.getElementById('editorCanvas');
+                this.initCropper(url);
+            }
+        };
+        
+        if (isHEIC && typeof heic2any !== 'undefined') {
+            // Show conversion message only if not already converted
+            console.log('Converting HEIC image for editing...');
+            if (this.editorContainer) {
+                this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: white;"><i class="fas fa-spinner fa-spin" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Converting HEIC image...</p></div>';
             }
             
-            // Initialize cropper with the image
-            this.initCropper(url);
-        })
-        .catch(err => {
-            console.error('Failed to load image for editing:', err);
-            if (this.editorContainer) {
-                this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #ef4444;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i><p>Failed to load image for editing</p><p style="font-size: 0.9rem; margin-top: 0.5rem;">' + err.message + '</p></div>';
-            }
-        });
+            heic2any({
+                blob: blob,
+                toType: 'image/jpeg',
+                quality: 0.9
+            })
+            .then(convertedBlob => {
+                console.log('HEIC converted successfully for editing');
+                processBlob(convertedBlob);
+            })
+            .catch(err => {
+                console.error('HEIC conversion failed:', err);
+                if (this.editorContainer) {
+                    this.editorContainer.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: white;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem; color: #ef4444;"></i><p style="color: #ef4444;">Failed to convert HEIC image</p><p style="font-size: 0.85rem; color: #999;">' + err.message + '</p></div>';
+                }
+            });
+        } else {
+            processBlob(blob);
+        }
     }
     
     rotate(degrees) {

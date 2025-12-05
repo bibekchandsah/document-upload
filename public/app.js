@@ -79,6 +79,8 @@ window.currentFiles = currentFiles; // Expose globally for imageEditor
 let searchTimeout;
 let currentViewedFile = null; // Track the currently viewed file for sharing
 let currentViewedFilePath = '';
+let currentViewedImageBlob = null; // Store the loaded image blob for reuse in editor
+let viewerCropper = null; // Cropper instance for image viewer
 let selectedFiles = new Set(); // Track selected files for bulk operations
 let selectionMode = false; // Track if we're in selection mode
 let showThumbnails = localStorage.getItem('showThumbnails') === 'true'; // Track thumbnail preference
@@ -1279,6 +1281,9 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     console.log('Image loaded successfully!');
                     viewerBody.innerHTML = '';
                     viewerBody.appendChild(img);
+                    
+                    // Store blob for reuse in editor
+                    currentViewedImageBlob = blob;
                     
                     // Add zoom functionality
                     initializeImageZoom(img, viewerBody);
@@ -2532,13 +2537,13 @@ initializeImageEditor();
 // Logout button event listener
 document.getElementById('logoutBtn')?.addEventListener('click', logout);
 
-// --- Image Zoom Functionality ---
+// --- Image Zoom Functionality with Cropper.js ---
 function initializeImageZoom(img, container) {
-    let scale = 1;
-    let posX = 0;
-    let posY = 0;
-    let isDragging = false;
-    let startX, startY;
+    // Destroy existing cropper if any
+    if (viewerCropper) {
+        viewerCropper.destroy();
+        viewerCropper = null;
+    }
     
     // Show zoom controls
     const zoomControls = document.getElementById('zoomControls');
@@ -2549,67 +2554,58 @@ function initializeImageZoom(img, container) {
     
     if (zoomControls) {
         zoomControls.style.display = 'flex';
-        // Add fade-in effect
         setTimeout(() => {
             zoomControls.style.opacity = '1';
         }, 100);
     }
     
-    // Make image transformable
-    img.style.cursor = 'grab';
-    img.style.userSelect = 'none';
-    img.style.transition = 'none';
+    // Initialize Cropper.js for zoom and pan (no crop mode)
+    viewerCropper = new Cropper(img, {
+        viewMode: 1,
+        dragMode: 'move',
+        aspectRatio: NaN,
+        autoCropArea: 0,
+        autoCrop: false,
+        zoomable: true,
+        zoomOnWheel: true,
+        zoomOnTouch: true,
+        cropBoxMovable: false,
+        cropBoxResizable: false,
+        toggleDragModeOnDblclick: false,
+        background: false,
+        guides: false,
+        center: false,
+        highlight: false,
+        movable: true,
+        rotatable: false,
+        scalable: false,
+        responsive: true,
+        restore: false,
+        checkCrossOrigin: false,
+        checkOrientation: false,
+        modal: false,
+        minContainerWidth: 200,
+        minContainerHeight: 200,
+        ready() {
+            updateZoomLevel();
+        },
+        zoom(event) {
+            updateZoomLevel();
+        }
+    });
     
-    function updateTransform() {
-        img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-        img.style.transformOrigin = '0 0';
-        if (zoomLevel) {
+    function updateZoomLevel() {
+        if (viewerCropper && zoomLevel) {
+            const imageData = viewerCropper.getImageData();
+            const scale = imageData.width / imageData.naturalWidth;
             zoomLevel.textContent = Math.round(scale * 100) + '%';
         }
     }
     
     function resetZoom() {
-        scale = 1;
-        posX = 0;
-        posY = 0;
-        img.style.transition = 'transform 0.3s ease';
-        updateTransform();
-        setTimeout(() => {
-            img.style.transition = 'none';
-        }, 300);
-    }
-    
-    function getImagePointAtClient(clientX, clientY) {
-        // Get container position
-        const containerRect = container.getBoundingClientRect();
-        
-        // Position relative to container
-        const x = clientX - containerRect.left;
-        const y = clientY - containerRect.top;
-        
-        // Convert to image coordinates (accounting for current transform)
-        const imageX = (x - posX) / scale;
-        const imageY = (y - posY) / scale;
-        
-        return { imageX, imageY, containerX: x, containerY: y };
-    }
-    
-    function zoomAtPoint(clientX, clientY, delta) {
-        const newScale = Math.min(Math.max(0.5, scale + delta), 5);
-        
-        if (newScale !== scale) {
-            // Get the point on the image under the cursor
-            const point = getImagePointAtClient(clientX, clientY);
-            
-            // Apply new scale
-            const oldScale = scale;
-            scale = newScale;
-            
-            // Adjust position so the same image point stays under the cursor
-            posX = point.containerX - point.imageX * scale;
-            posY = point.containerY - point.imageY * scale;
-            
-            updateTransform();
+        if (viewerCropper) {
+            viewerCropper.reset();
+            updateZoomLevel();
         }
     }
     
@@ -2617,20 +2613,18 @@ function initializeImageZoom(img, container) {
     if (zoomInBtn) {
         zoomInBtn.onclick = (e) => {
             e.stopPropagation();
-            const containerRect = container.getBoundingClientRect();
-            const centerX = containerRect.left + containerRect.width / 2;
-            const centerY = containerRect.top + containerRect.height / 2;
-            zoomAtPoint(centerX, centerY, 0.2);
+            if (viewerCropper) {
+                viewerCropper.zoom(0.1);
+            }
         };
     }
     
     if (zoomOutBtn) {
         zoomOutBtn.onclick = (e) => {
             e.stopPropagation();
-            const containerRect = container.getBoundingClientRect();
-            const centerX = containerRect.left + containerRect.width / 2;
-            const centerY = containerRect.top + containerRect.height / 2;
-            zoomAtPoint(centerX, centerY, -0.2);
+            if (viewerCropper) {
+                viewerCropper.zoom(-0.1);
+            }
         };
     }
     
@@ -2641,122 +2635,24 @@ function initializeImageZoom(img, container) {
         };
     }
     
-    // Mouse wheel zoom
-    container.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        zoomAtPoint(e.clientX, e.clientY, delta);
-    }, { passive: false });
-    
-    // Mouse drag
-    img.addEventListener('mousedown', (e) => {
-        if (scale > 1) {
-            isDragging = true;
-            startX = e.clientX - posX;
-            startY = e.clientY - posY;
-            img.style.cursor = 'grabbing';
-            e.preventDefault();
-        }
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-        if (isDragging) {
-            e.preventDefault();
-            posX = e.clientX - startX;
-            posY = e.clientY - startY;
-            updateTransform();
-        }
-    });
-    
-    document.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            img.style.cursor = 'grab';
-        }
-    });
-    
-    // Touch gestures (pinch and pan)
-    let initialPinchDistance = 0;
-    let initialScale = 1;
-    let touches = [];
-    let touchStartTime = 0;
-    let pinchCenter = { x: 0, y: 0 };
-    
-    container.addEventListener('touchstart', (e) => {
-        touches = Array.from(e.touches);
-        touchStartTime = Date.now();
-        
-        if (touches.length === 2) {
-            // Pinch zoom start
-            e.preventDefault();
-            
-            pinchCenter.x = (touches[0].clientX + touches[1].clientX) / 2;
-            pinchCenter.y = (touches[0].clientY + touches[1].clientY) / 2;
-            
-            initialPinchDistance = Math.hypot(
-                touches[0].clientX - touches[1].clientX,
-                touches[0].clientY - touches[1].clientY
-            );
-            initialScale = scale;
-        } else if (touches.length === 1 && scale > 1) {
-            // Pan start
-            isDragging = true;
-            startX = touches[0].clientX - posX;
-            startY = touches[0].clientY - posY;
-        }
-    }, { passive: false });
-    
-    container.addEventListener('touchmove', (e) => {
-        touches = Array.from(e.touches);
-        
-        if (touches.length === 2) {
-            // Pinch zoom
-            e.preventDefault();
-            const currentDistance = Math.hypot(
-                touches[0].clientX - touches[1].clientX,
-                touches[0].clientY - touches[1].clientY
-            );
-            
-            const scaleDelta = (currentDistance / initialPinchDistance) - 1;
-            const newScale = Math.min(Math.max(0.5, initialScale + scaleDelta), 5);
-            
-            if (newScale !== scale) {
-                zoomAtPoint(pinchCenter.x, pinchCenter.y, newScale - scale);
-            }
-        } else if (touches.length === 1 && isDragging) {
-            // Pan
-            e.preventDefault();
-            posX = touches[0].clientX - startX;
-            posY = touches[0].clientY - startY;
-            updateTransform();
-        }
-    }, { passive: false });
-    
-    container.addEventListener('touchend', (e) => {
-        const touchDuration = Date.now() - touchStartTime;
-        
-        if (e.touches.length === 0) {
-            isDragging = false;
-            initialPinchDistance = 0;
-            
-            // Double-tap to reset zoom (only if touch was quick)
-            if (touchDuration < 300) {
-                const now = Date.now();
-                if (window.lastTouchEnd && now - window.lastTouchEnd < 300) {
-                    resetZoom();
-                }
-                window.lastTouchEnd = now;
-            }
-        }
-    });
+    // Double-click to reset zoom
+    img.addEventListener('dblclick', resetZoom);
     
     // Store zoom state
     window.viewerZoomState = {
         reset: resetZoom,
-        scale: () => scale,
+        scale: () => {
+            if (viewerCropper) {
+                const imageData = viewerCropper.getImageData();
+                return imageData.width / imageData.naturalWidth;
+            }
+            return 1;
+        },
         cleanup: () => {
+            if (viewerCropper) {
+                viewerCropper.destroy();
+                viewerCropper = null;
+            }
             if (zoomControls) {
                 zoomControls.style.display = 'none';
             }
@@ -2794,7 +2690,8 @@ function initializeImageEditor() {
                         try {
                             // Update config with current folder before opening
                             imageEditor.configure({ currentFolder: currentFolder });
-                            imageEditor.open(currentViewedFile);
+                            // Pass the already-loaded image blob to avoid re-fetching
+                            imageEditor.open(currentViewedFile, currentViewedImageBlob);
                         } finally {
                             // Restore button state
                             editImageBtn.innerHTML = originalHTML;
