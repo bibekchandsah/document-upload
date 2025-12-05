@@ -2907,3 +2907,83 @@ body.modal-open {
 body.modal-open .file-grid {
     overflow: hidden !important;
 }
+
+/* CSV Table Styles */
+.csv-container {
+    background: #fff;
+}
+
+.csv-table {
+    background: #fff;
+}
+
+.csv-header-row {
+    background: #f3f4f6;
+    border-bottom: 2px solid #d1d5db;
+}
+
+.csv-header-cell {
+    border: 1px solid #e5e7eb;
+    color: #111827;
+}
+
+.csv-row {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.csv-row-odd {
+    background: #fff;
+}
+
+.csv-row-even {
+    background: #f9fafb;
+}
+
+.csv-row:hover {
+    background: #f3f4f6 !important;
+}
+
+.csv-cell {
+    border: 1px solid #e5e7eb;
+    color: #1f2937;
+}
+
+/* Dark mode CSV styles */
+[data-theme="dark"] .csv-container {
+    background: #1e293b;
+}
+
+[data-theme="dark"] .csv-table {
+    background: #1e293b;
+}
+
+[data-theme="dark"] .csv-header-row {
+    background: #334155;
+    border-bottom: 2px solid #475569;
+}
+
+[data-theme="dark"] .csv-header-cell {
+    border: 1px solid #475569;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .csv-row {
+    border-bottom: 1px solid #475569;
+}
+
+[data-theme="dark"] .csv-row-odd {
+    background: #1e293b;
+}
+
+[data-theme="dark"] .csv-row-even {
+    background: #334155;
+}
+
+[data-theme="dark"] .csv-row:hover {
+    background: #475569 !important;
+}
+
+[data-theme="dark"] .csv-cell {
+    border: 1px solid #475569;
+    color: #e2e8f0;
+}

@@ -1192,8 +1192,9 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
         viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading preview...</p></div>';
     }
 
-    const isDoc = file.name.match(/\.(docx|doc|xlsx|xls|pptx|ppt|csv)$/i);
+    const isDoc = file.name.match(/\.(docx|doc|xlsx|xls|pptx|ppt)$/i);
     const isText = file.name.match(/\.(txt|json|md|js|css|html)$/i);
+    const isCsv = file.name.match(/\.csv$/i);
     const isVideo = file.type.includes('video') || file.name.match(/\.(mp4|webm|ogg|mp3|mov)$/i);
 
     // Log the request details for debugging
@@ -1373,6 +1374,92 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     pre.textContent = text;
                     viewerBody.innerHTML = '';
                     viewerBody.appendChild(pre);
+                });
+            } else if (isCsv) {
+                blob.text().then(text => {
+                    const container = document.createElement('div');
+                    container.style.cssText = 'padding: 1rem; overflow: auto; height: 100%; width: 100%;';
+                    container.className = 'csv-container';
+                    
+                    // Parse CSV
+                    const lines = text.split('\n').filter(line => line.trim());
+                    if (lines.length === 0) {
+                        container.innerHTML = '<div class="empty-state"><i class="fas fa-file-csv"></i><p>Empty CSV file</p></div>';
+                        viewerBody.innerHTML = '';
+                        viewerBody.appendChild(container);
+                        return;
+                    }
+                    
+                    // Create table
+                    const table = document.createElement('table');
+                    table.className = 'csv-table';
+                    table.style.cssText = 'width: 100%; border-collapse: collapse; font-size: 0.9rem;';
+                    
+                    // Parse CSV with proper handling of quoted fields
+                    const parseCSVLine = (line) => {
+                        const result = [];
+                        let current = '';
+                        let inQuotes = false;
+                        
+                        for (let i = 0; i < line.length; i++) {
+                            const char = line[i];
+                            const nextChar = line[i + 1];
+                            
+                            if (char === '"') {
+                                if (inQuotes && nextChar === '"') {
+                                    current += '"';
+                                    i++;
+                                } else {
+                                    inQuotes = !inQuotes;
+                                }
+                            } else if (char === ',' && !inQuotes) {
+                                result.push(current);
+                                current = '';
+                            } else {
+                                current += char;
+                            }
+                        }
+                        result.push(current);
+                        return result;
+                    };
+                    
+                    // Header row
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    headerRow.className = 'csv-header-row';
+                    
+                    const headers = parseCSVLine(lines[0]);
+                    headers.forEach(header => {
+                        const th = document.createElement('th');
+                        th.className = 'csv-header-cell';
+                        th.style.cssText = 'padding: 0.75rem 1rem; text-align: left; font-weight: 600; white-space: nowrap;';
+                        th.textContent = header.trim();
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+                    
+                    // Body rows
+                    const tbody = document.createElement('tbody');
+                    for (let i = 1; i < lines.length; i++) {
+                        const row = document.createElement('tr');
+                        row.className = i % 2 === 0 ? 'csv-row csv-row-even' : 'csv-row csv-row-odd';
+                        
+                        const cells = parseCSVLine(lines[i]);
+                        cells.forEach(cell => {
+                            const td = document.createElement('td');
+                            td.className = 'csv-cell';
+                            td.style.cssText = 'padding: 0.75rem 1rem; white-space: nowrap;';
+                            td.textContent = cell.trim();
+                            row.appendChild(td);
+                        });
+                        tbody.appendChild(row);
+                    }
+                    table.appendChild(tbody);
+                    
+                    container.appendChild(table);
+                    viewerBody.innerHTML = '';
+                    viewerBody.appendChild(container);
                 });
                 // } else if (isDoc) {
                 //     // Google Viewer needs a PUBLIC URL. It won't work with our proxy or blob.

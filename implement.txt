@@ -43,7 +43,8 @@ log (username, token, shared link) in csv file
 17) thhumbnail + blur effect loading image
 16) simulaneously load thumbnail and modal preview
 17) Add zoom controls and enhance modal styling
-Ensured the modal prevents background scrolling when open and maintains a clean layout.
+18) Ensured the modal prevents background scrolling when open and maintains a clean layout.
+19) csv tabular view supported
 
 
 
