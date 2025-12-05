@@ -42,10 +42,8 @@ log (username, token, shared link) in csv file
 16) decrease the quality  of all images on server side and thumbnail download only 15-20kb
 17) thhumbnail + blur effect loading image
 16) simulaneously load thumbnail and modal preview
-
-Add zoom controls and enhance modal styling
-
-- Ensured the modal prevents background scrolling when open and maintains a clean layout.
+17) Add zoom controls and enhance modal styling
+Ensured the modal prevents background scrolling when open and maintains a clean layout.
 
 
 

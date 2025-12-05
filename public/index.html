@@ -246,6 +246,16 @@
                     <canvas id="editorCanvas"
                         style="max-width: 100%; max-height: 100%; border: 2px solid var(--border-color);"></canvas>
                 </div>
+                <!-- Rotation Control at Bottom Center -->
+                <div id="rotationControl" class="rotation-control-bottom" style="display: none;">
+                    <button id="rotateLeftFineBtn" class="rotation-btn" title="Rotate Left 1°"><i class="fas fa-chevron-left"></i></button>
+                    <div class="rotation-slider-container">
+                        <div id="rotationTooltip" class="rotation-value-tooltip">0°</div>
+                        <input type="range" id="rotationSlider" min="-180" max="180" value="0" step="1" class="rotation-slider">
+                    </div>
+                    <button id="rotateRightFineBtn" class="rotation-btn" title="Rotate Right 1°"><i class="fas fa-chevron-right"></i></button>
+                    <button id="rotationResetBtn" class="rotation-btn" title="Reset Rotation"><i class="fas fa-sync-alt"></i></button>
+                </div>
             </div>
         </div>
     </div>

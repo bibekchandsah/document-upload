@@ -18,6 +18,14 @@ class ImageEditor {
         this.saveOverwriteBtn = document.getElementById('saveOverwriteBtn');
         this.closeBtn = document.getElementById('closeEditorBtn');
         
+        // Rotation control elements
+        this.rotationControl = document.getElementById('rotationControl');
+        this.rotationSlider = document.getElementById('rotationSlider');
+        this.rotationTooltip = document.getElementById('rotationTooltip');
+        this.rotateLeftFineBtn = document.getElementById('rotateLeftFineBtn');
+        this.rotateRightFineBtn = document.getElementById('rotateRightFineBtn');
+        this.rotationResetBtn = document.getElementById('rotationResetBtn');
+        
         // State
         this.cropper = null;
         this.originalImageUrl = null;
@@ -92,6 +100,100 @@ class ImageEditor {
         if (this.closeBtn) {
             this.closeBtn.addEventListener('click', () => this.close());
         }
+        
+        // Rotation slider events
+        if (this.rotationSlider) {
+            // Function to update tooltip position
+            const updateTooltipPosition = () => {
+                if (this.rotationTooltip && this.rotationSlider) {
+                    const value = parseFloat(this.rotationSlider.value);
+                    const min = parseFloat(this.rotationSlider.min);
+                    const max = parseFloat(this.rotationSlider.max);
+                    const percent = (value - min) / (max - min);
+                    const sliderWidth = this.rotationSlider.offsetWidth;
+                    const thumbWidth = 20; // Width of the slider thumb
+                    const position = percent * (sliderWidth - thumbWidth) + thumbWidth / 2;
+                    this.rotationTooltip.style.left = position + 'px';
+                }
+            };
+            
+            this.rotationSlider.addEventListener('input', (e) => {
+                const degrees = parseFloat(e.target.value);
+                this.rotateToAngle(degrees);
+                // Update tooltip text and position
+                if (this.rotationTooltip) {
+                    this.rotationTooltip.textContent = Math.round(degrees) + '°';
+                    updateTooltipPosition();
+                }
+            });
+            
+            // Show tooltip on hover
+            this.rotationSlider.addEventListener('mouseenter', () => {
+                if (this.rotationTooltip) {
+                    updateTooltipPosition();
+                    this.rotationTooltip.style.opacity = '1';
+                }
+            });
+            
+            this.rotationSlider.addEventListener('mouseleave', () => {
+                if (this.rotationTooltip) {
+                    this.rotationTooltip.style.opacity = '0';
+                }
+            });
+            
+            // Show tooltip on touch
+            this.rotationSlider.addEventListener('touchstart', () => {
+                if (this.rotationTooltip) {
+                    updateTooltipPosition();
+                    this.rotationTooltip.style.opacity = '1';
+                }
+            });
+            
+            this.rotationSlider.addEventListener('touchend', () => {
+                if (this.rotationTooltip) {
+                    setTimeout(() => {
+                        this.rotationTooltip.style.opacity = '0';
+                    }, 1000);
+                }
+            });
+            
+            // Initialize tooltip position
+            updateTooltipPosition();
+        }
+        
+        if (this.rotateLeftFineBtn) {
+            this.rotateLeftFineBtn.addEventListener('click', () => {
+                const currentRotation = parseFloat(this.rotationSlider.value) || 0;
+                const newRotation = Math.max(-180, currentRotation - 1);
+                this.rotationSlider.value = newRotation;
+                this.rotateToAngle(newRotation);
+                if (this.rotationTooltip) {
+                    this.rotationTooltip.textContent = Math.round(newRotation) + '°';
+                }
+            });
+        }
+        
+        if (this.rotateRightFineBtn) {
+            this.rotateRightFineBtn.addEventListener('click', () => {
+                const currentRotation = parseFloat(this.rotationSlider.value) || 0;
+                const newRotation = Math.min(180, currentRotation + 1);
+                this.rotationSlider.value = newRotation;
+                this.rotateToAngle(newRotation);
+                if (this.rotationTooltip) {
+                    this.rotationTooltip.textContent = Math.round(newRotation) + '°';
+                }
+            });
+        }
+        
+        if (this.rotationResetBtn) {
+            this.rotationResetBtn.addEventListener('click', () => {
+                this.rotationSlider.value = 0;
+                this.rotateToAngle(0);
+                if (this.rotationTooltip) {
+                    this.rotationTooltip.textContent = '0°';
+                }
+            });
+        }
     }
     
     initCropper(imageUrl) {
@@ -133,6 +235,22 @@ class ImageEditor {
         
         // Show modal immediately
         this.modal.classList.remove('hidden');
+        
+        // Show rotation control
+        if (this.rotationControl) {
+            this.rotationControl.style.display = 'flex';
+            setTimeout(() => {
+                this.rotationControl.style.opacity = '1';
+            }, 100);
+        }
+        
+        // Reset rotation slider
+        if (this.rotationSlider) {
+            this.rotationSlider.value = 0;
+        }
+        if (this.rotationTooltip) {
+            this.rotationTooltip.textContent = '0°';
+        }
         
         // Hide viewer modal if open
         const viewerModal = document.getElementById('viewerModal');
@@ -226,6 +344,30 @@ class ImageEditor {
     rotate(degrees) {
         if (this.cropper) {
             this.cropper.rotate(degrees);
+            // Update slider to reflect current rotation
+            if (this.rotationSlider && this.rotationTooltip) {
+                const imageData = this.cropper.getImageData();
+                const currentRotation = imageData.rotate || 0;
+                const normalizedRotation = ((currentRotation % 360) + 360) % 360;
+                const sliderValue = normalizedRotation > 180 ? normalizedRotation - 360 : normalizedRotation;
+                this.rotationSlider.value = Math.round(sliderValue);
+                this.rotationTooltip.textContent = Math.round(sliderValue) + '°';
+            }
+        }
+    }
+    
+    rotateToAngle(degrees) {
+        if (this.cropper) {
+            const imageData = this.cropper.getImageData();
+            const currentRotation = imageData.rotate || 0;
+            const targetRotation = degrees;
+            const delta = targetRotation - currentRotation;
+            this.cropper.rotate(delta);
+            
+            // Update tooltip
+            if (this.rotationTooltip) {
+                this.rotationTooltip.textContent = Math.round(degrees) + '°';
+            }
         }
     }
     
@@ -270,6 +412,13 @@ class ImageEditor {
             if (this.cropBtn) {
                 this.cropBtn.style.background = '';
                 this.cropBtn.style.color = '';
+            }
+            // Reset rotation slider
+            if (this.rotationSlider) {
+                this.rotationSlider.value = 0;
+            }
+            if (this.rotationTooltip) {
+                this.rotationTooltip.textContent = '0°';
             }
         }
     }
@@ -388,6 +537,14 @@ class ImageEditor {
     
     close() {
         this.modal.classList.add('hidden');
+        
+        // Hide rotation control
+        if (this.rotationControl) {
+            this.rotationControl.style.opacity = '0';
+            setTimeout(() => {
+                this.rotationControl.style.display = 'none';
+            }, 300);
+        }
         
         // Destroy cropper instance
         if (this.cropper) {

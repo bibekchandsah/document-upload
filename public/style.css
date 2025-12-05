@@ -2678,6 +2678,217 @@ span.breadcrumb-item:hover {
     cursor: grabbing;
 }
 
+/* Rotation Control at Bottom Center */
+.rotation-control-bottom {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 0.75rem 1.5rem;
+    border-radius: 2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.rotation-slider-container {
+    position: relative;
+    min-width: 300px;
+}
+
+.rotation-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #ef4444 0%, #f59e0b 25%, #10b981 50%, #f59e0b 75%, #ef4444 100%);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.rotation-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+    position: relative;
+}
+
+.rotation-slider::-webkit-slider-thumb::after {
+    content: attr(data-value);
+}
+
+.rotation-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.rotation-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+}
+
+.rotation-slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Tooltip for slider value */
+.rotation-slider-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 300px;
+    position: relative;
+}
+
+.rotation-value-tooltip {
+    position: absolute;
+    top: -50px;
+    left: 0;
+    background: #fff;
+    color: #000;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease, left 0.05s ease;
+    white-space: nowrap;
+    z-index: 1001;
+    font-family: 'Courier New', monospace;
+    transform: translateX(-50%);
+}
+
+.rotation-value-tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #fff;
+}
+
+.rotation-slider:active ~ .rotation-value-tooltip,
+.rotation-slider:hover ~ .rotation-value-tooltip {
+    opacity: 1;
+}
+
+.rotation-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rotation-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.rotation-btn:active {
+    transform: translateY(0);
+}
+
+/* Responsive design for rotation control on mobile */
+@media (max-width: 768px) {
+    .rotation-control-bottom {
+        bottom: 1rem;
+        padding: 0.5rem 1rem;
+        gap: 0.5rem;
+        max-width: 90%;
+    }
+    
+    .rotation-slider-container {
+        min-width: 180px;
+    }
+    
+    .rotation-slider {
+        height: 8px;
+    }
+    
+    .rotation-slider::-webkit-slider-thumb {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .rotation-slider::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .rotation-degree-text {
+        font-size: 0.9rem;
+        min-width: 45px;
+    }
+    
+    .rotation-btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+    }
+    
+    .rotation-btn i {
+        font-size: 0.85rem;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+    .rotation-control-bottom {
+        bottom: 1.5rem;
+        padding: 0.4rem 0.75rem;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        padding-top: 1.3rem;
+    }
+    
+    .rotation-slider-container {
+        min-width: 140px;
+        order: -1;
+        width: 100%;
+    }
+    
+    .rotation-degree-text {
+        font-size: 0.85rem;
+        min-width: 40px;
+    }
+    
+    .rotation-btn {
+        padding: 0.35rem 0.5rem;
+    }
+}
+
 .zoom-content {
     transform-origin: center center;
     transition: transform 0.1s ease-out;
