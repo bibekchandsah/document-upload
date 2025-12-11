@@ -10,6 +10,9 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -17,7 +20,7 @@
     "heic-convert": "^2.1.0",
     "mime-types": "^3.0.2",
     "multer": "^2.0.2",
-    "@octokit/rest": "^19.0.13",
+    "@octokit/rest": "^18.12.0",
     "sharp": "^0.34.5"
   }
 }
