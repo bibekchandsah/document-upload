@@ -35,7 +35,7 @@ const { logActivity } = require('./logger');
 const shareLinks = new Map();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
