@@ -1,4 +1,4 @@
-const { Octokit } = require('octokit');
+const { Octokit } = require('@octokit/rest');
 require('dotenv').config();
 
 const LOGS_REPO_OWNER = process.env.LOGS_USERNAME || 'bibekchandsah';

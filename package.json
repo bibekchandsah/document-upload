@@ -17,7 +17,7 @@
     "heic-convert": "^2.1.0",
     "mime-types": "^3.0.2",
     "multer": "^2.0.2",
-    "octokit": "^5.0.5",
+    "@octokit/rest": "^19.0.13",
     "sharp": "^0.34.5"
   }
 }
