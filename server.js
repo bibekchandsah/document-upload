@@ -109,6 +109,47 @@ app.get('/api/github/rate-limit', async (req, res) => {
     }
 });
 
+// GitHub Repository Size Endpoint
+app.get('/api/github/repo-size', async (req, res) => {
+    const ghToken = req.headers['x-gh-token'];
+    const ghUser = req.headers['x-gh-user'];
+    const ghRepo = req.headers['x-gh-repo'];
+
+    if (!ghToken || !ghUser || !ghRepo) {
+        return res.status(401).json({ error: 'GitHub credentials required' });
+    }
+
+    try {
+        // Get repository information including size
+        const response = await fetch(`https://api.github.com/repos/${ghUser}/${ghRepo}`, {
+            headers: {
+                'Authorization': `token ${ghToken}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'User-Agent': 'Document-Viewer-App'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Size is in KB, convert to bytes for consistent handling
+        const sizeInBytes = data.size * 1024;
+        
+        res.json({
+            size: sizeInBytes,
+            sizeKB: data.size,
+            sizeMB: (data.size / 1024).toFixed(2),
+            sizeGB: (data.size / 1024 / 1024).toFixed(3)
+        });
+    } catch (error) {
+        console.error('Error fetching repository size:', error);
+        res.status(500).json({ error: 'Failed to fetch repository size' });
+    }
+});
+
 // 1. List files and folders (Unified API)
 app.get('/api/files', (req, res) => {
     const folder = req.query.folder || '';

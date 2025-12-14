@@ -55,10 +55,10 @@ log (username, token, shared link) in csv file
 ✅ Ctrl+U - Triggers the upload button
 ✅ Ctrl+L - Turns off dark mode (Light mode)
 ✅ Ctrl+D - Turns on Dark mode
+24) storage view in profile (used storage, free storage)
+25) zoom & edit for iphone image
 
 24) edit and save with comment text files (txt, md, log)
-zoom in iphone image
-edit in iphone image
 
 
 

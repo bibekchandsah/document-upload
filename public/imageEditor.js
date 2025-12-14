@@ -299,7 +299,9 @@ class ImageEditor {
     
     loadImageFromBlob(blob) {
         // Check if it's HEIC/HEIF format and convert if needed
-        const isHEIC = blob.type.includes('heic') || blob.type.includes('heif') || this.currentFile.name.match(/\.(heic|heif)$/i);
+        // Only consider it HEIC if the blob type is heic/heif (not if it's already jpeg/png)
+        const isActualHEIC = blob.type.includes('heic') || blob.type.includes('heif');
+        const isHEIC = isActualHEIC || (blob.type === 'application/octet-stream' && this.currentFile.name.match(/\.(heic|heif)$/i));
         
         const processBlob = (finalBlob) => {
             const url = URL.createObjectURL(finalBlob);

@@ -295,7 +295,7 @@
                 <h3><i class="fas fa-tachometer-alt"></i> GitHub API Rate Limit</h3>
                 <button id="closeRateLimitModal" class="icon-btn"><i class="fas fa-times"></i></button>
             </div>
-            <div class="modal-body" style="padding: 2rem;">
+            <div class="modal-body rateLimitModalBody" style="padding: 2rem;">
                 <div id="rateLimitLoading" style="text-align: center; padding: 2rem;">
                     <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary-color);"></i>
                     <p style="margin-top: 1rem; color: #6b7280;">Loading rate limit data...</p>
@@ -337,6 +337,57 @@
                         <i class="fas fa-info-circle"></i>
                         <span>GitHub API rate limit is <strong>5,000 requests per hour</strong> for authenticated
                             users.</span>
+                    </div>
+
+                    <!-- Storage Usage Section -->
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                        <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-color);">
+                            <i class="fas fa-database"></i> Repository Storage
+                        </h4>
+                        <div id="storageLoading" style="text-align: center; padding: 1rem;">
+                            <i class="fas fa-spinner fa-spin" style="color: var(--primary-color);"></i>
+                            <span style="margin-left: 0.5rem; font-size: 0.875rem; color: #6b7280;">Loading...</span>
+                        </div>
+                        <div id="storageContent" style="display: none;">
+                            <div class="rate-limit-item" style="margin-bottom: 0.75rem;">
+                                <div class="rate-limit-label" style="font-size: 0.875rem;">
+                                    <i class="fas fa-hdd"></i> Repository Size
+                                </div>
+                                <div class="rate-limit-value" id="repoSize" style="font-size: 1rem;">-</div>
+                            </div>
+                            
+                            <!-- Fast Access Storage (1GB) -->
+                            <div class="rate-limit-progress" style="margin-bottom: 1rem;">
+                                <div class="progress-label">
+                                    <span style="font-size: 0.875rem;">Fast Access (1GB)</span>
+                                    <span id="fastStoragePercentage" style="font-size: 0.875rem;">0%</span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div id="fastStorageProgressBar" class="progress-bar"
+                                        style="background: linear-gradient(90deg, #10b981, #3b82f6);"></div>
+                                </div>
+                            </div>
+
+                            <!-- Slow Access Storage (100GB) -->
+                            <div class="rate-limit-progress">
+                                <div class="progress-label">
+                                    <span style="font-size: 0.875rem;">Total Limit (100GB)</span>
+                                    <span id="slowStoragePercentage" style="font-size: 0.875rem;">0%</span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div id="slowStorageProgressBar" class="progress-bar"
+                                        style="background: linear-gradient(90deg, #6366f1, #8b5cf6);"></div>
+                                </div>
+                            </div>
+
+                            <div class="rate-limit-info" style="margin-top: 0.75rem;">
+                                <i class="fas fa-info-circle"></i>
+                                <span style="font-size: 0.75rem;">GitHub provides <strong>1GB fast access</strong> and <strong>100GB soft limit</strong> for repositories.</span>
+                            </div>
+                        </div>
+                        <div id="storageError" style="display: none; text-align: center; padding: 0.5rem;">
+                            <span style="font-size: 0.875rem; color: #ef4444;">Failed to load storage data</span>
+                        </div>
                     </div>
 
                     <!-- Info Button -->

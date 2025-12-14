@@ -240,6 +240,7 @@ function showRateLimitModal() {
 
     // Fetch rate limit data
     fetchRateLimit();
+    fetchRepoSize();
 }
 
 // Fetch GitHub rate limit
@@ -313,6 +314,89 @@ async function fetchRateLimit() {
         console.error('Error fetching rate limit:', error);
         document.getElementById('rateLimitLoading').style.display = 'none';
         document.getElementById('rateLimitError').style.display = 'block';
+    }
+}
+
+// Fetch GitHub repository size
+async function fetchRepoSize() {
+    const storageLoading = document.getElementById('storageLoading');
+    const storageContent = document.getElementById('storageContent');
+    const storageError = document.getElementById('storageError');
+
+    // Reset state
+    storageLoading.style.display = 'block';
+    storageContent.style.display = 'none';
+    storageError.style.display = 'none';
+
+    try {
+        const response = await fetch(`${API_BASE}/github/repo-size`, {
+            headers: {
+                'x-gh-token': ghToken,
+                'x-gh-user': ghUser,
+                'x-gh-repo': ghRepo
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch repository size');
+        }
+
+        const data = await response.json();
+
+        // Format size display
+        let sizeDisplay;
+        if (data.sizeKB < 1024) {
+            sizeDisplay = `${data.sizeKB} KB`;
+        } else if (data.sizeKB < 1024 * 1024) {
+            sizeDisplay = `${data.sizeMB} MB`;
+        } else {
+            sizeDisplay = `${data.sizeGB} GB`;
+        }
+
+        document.getElementById('repoSize').textContent = sizeDisplay;
+
+        // Calculate percentages for both storage tiers
+        const fastStorageLimit = 1024 * 1024 * 1024; // 1GB in bytes
+        const slowStorageLimit = 100 * 1024 * 1024 * 1024; // 100GB in bytes
+
+        const fastStoragePercent = ((data.size / fastStorageLimit) * 100).toFixed(2);
+        const slowStoragePercent = ((data.size / slowStorageLimit) * 100).toFixed(2);
+
+        // Update fast storage (1GB)
+        document.getElementById('fastStoragePercentage').textContent = `${fastStoragePercent}%`;
+        document.getElementById('fastStorageProgressBar').style.width = `${Math.min(fastStoragePercent, 100)}%`;
+
+        // Color code fast storage
+        const fastBar = document.getElementById('fastStorageProgressBar');
+        if (fastStoragePercent >= 90) {
+            fastBar.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)'; // Red
+        } else if (fastStoragePercent >= 70) {
+            fastBar.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)'; // Orange
+        } else {
+            fastBar.style.background = 'linear-gradient(90deg, #10b981, #3b82f6)'; // Green-Blue
+        }
+
+        // Update slow storage (100GB)
+        document.getElementById('slowStoragePercentage').textContent = `${slowStoragePercent}%`;
+        document.getElementById('slowStorageProgressBar').style.width = `${Math.min(slowStoragePercent, 100)}%`;
+
+        // Color code slow storage
+        const slowBar = document.getElementById('slowStorageProgressBar');
+        if (slowStoragePercent >= 90) {
+            slowBar.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)'; // Red
+        } else if (slowStoragePercent >= 70) {
+            slowBar.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)'; // Orange
+        } else {
+            slowBar.style.background = 'linear-gradient(90deg, #6366f1, #8b5cf6)'; // Purple
+        }
+
+        // Show content
+        storageLoading.style.display = 'none';
+        storageContent.style.display = 'block';
+    } catch (error) {
+        console.error('Error fetching repository size:', error);
+        storageLoading.style.display = 'none';
+        storageError.style.display = 'block';
     }
 }
 
@@ -1246,6 +1330,12 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                                 console.log('HEIC image converted and loaded successfully!');
                                 viewerBody.innerHTML = '';
                                 viewerBody.appendChild(img);
+                                
+                                // Store converted blob for reuse in editor
+                                currentViewedImageBlob = convertedBlob;
+                                
+                                // Add zoom functionality for HEIC images too
+                                initializeImageZoom(img, viewerBody);
                             };
 
                             img.onerror = (e) => {

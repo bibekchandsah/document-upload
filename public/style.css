@@ -31,6 +31,12 @@
 }
 
 /* Rate Limit Modal Styles */
+.rateLimitModalBody{
+    display: block !important;
+    overflow-y: scroll !important;
+    max-height: 70vh !important;
+}
+
 .rate-limit-item {
     display: flex;
     justify-content: space-between;
