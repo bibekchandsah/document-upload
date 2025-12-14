@@ -334,6 +334,8 @@
     overflow-x: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) transparent;
+    flex-shrink: 0;
+    z-index: 10;
 }
 
 .view-options-bar::-webkit-scrollbar {
@@ -445,11 +447,19 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+    min-height: -webkit-fill-available;
+    margin: 0;
+    padding: 0;
     transition: background-color 0.3s ease, color 0.3s ease;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+}
+
+html {
+    height: 100%;
+    height: -webkit-fill-available;
 }
 
 /* Custom Scrollbar Styles */
@@ -499,6 +509,9 @@ body {
 
 .app-container {
     display: flex;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+    min-height: -webkit-fill-available;
     height: 100%;
     overscroll-behavior-y: contain;
 }
@@ -878,6 +891,9 @@ body.login-page {
     display: flex;
     flex-direction: column;
     transition: width 0.3s ease;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
 }
 
 .sidebar.collapsed {
@@ -904,6 +920,9 @@ body.login-page {
     border-bottom: 1px solid var(--border-color);
     cursor: w-resize;
     user-select: none;
+    flex-shrink: 0;
+    background-color: var(--sidebar-bg);
+    z-index: 10;
 }
 
 .sidebar-header:hover {
@@ -938,7 +957,8 @@ body.login-page {
     list-style: none;
     padding: 1rem;
     overflow-y: auto;
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .folder-item {
@@ -995,7 +1015,9 @@ body.login-page {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-top: auto;
+    flex-shrink: 0;
+    background-color: var(--sidebar-bg);
+    z-index: 10;
 }
 
 .sidebar.collapsed .sidebar-footer {
@@ -1076,7 +1098,8 @@ body.login-page {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    overscroll-behavior-y: contain;
+    height: 100vh;
+    height: 100dvh;
 }
 
 .top-bar {
@@ -1085,6 +1108,8 @@ body.login-page {
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
     align-items: center;
     flex-wrap: wrap;
 }
@@ -1221,13 +1246,16 @@ span.breadcrumb-item:hover {
 /* File Grid */
 .file-grid {
     padding: 2rem;
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom, 80px));
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     grid-auto-rows: max-content;
     align-content: start;
     gap: 1.5rem;
     overflow-y: auto;
-    flex: 1;
+    overflow-x: hidden;
+    flex: 1 1 auto;
+    min-height: 0;
     transition: background-color 0.2s, border-color 0.2s;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
@@ -2071,7 +2099,14 @@ span.breadcrumb-item:hover {
 
     .file-grid {
         padding: 1rem;
+        padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
         grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+
+    /* Ensure scrollable area for browser UI auto-hide */
+    .main-content {
+        min-height: calc(100vh + 1px);
+        min-height: calc(100dvh + 1px);
     }
 }
 
