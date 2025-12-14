@@ -45,6 +45,11 @@ log (username, token, shared link) in csv file
 17) Add zoom controls and enhance modal styling
 18) Ensured the modal prevents background scrolling when open and maintains a clean layout.
 19) csv tabular view supported
+20) support dark mode for text files (txt, csv, md, log)
+21) support markdown preview (md files)
+22) don't navigate back to opened modal
+22) edit and save with comment text files (txt, md, log)
+
 
 
 

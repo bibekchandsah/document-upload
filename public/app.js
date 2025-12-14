@@ -1193,7 +1193,8 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
     }
 
     const isDoc = file.name.match(/\.(docx|doc|xlsx|xls|pptx|ppt)$/i);
-    const isText = file.name.match(/\.(txt|json|md|js|css|html)$/i);
+    const isText = file.name.match(/\.(txt|json|js|css|html)$/i);
+    const isMarkdown = file.name.match(/\.md$/i);
     const isCsv = file.name.match(/\.csv$/i);
     const isVideo = file.type.includes('video') || file.name.match(/\.(mp4|webm|ogg|mp3|mov)$/i);
 
@@ -1365,8 +1366,8 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
             } else if (isText) {
                 blob.text().then(text => {
                     const pre = document.createElement('pre');
+                    pre.className = 'text-viewer';
                     pre.style.padding = '1rem';
-                    pre.style.backgroundColor = '#f8f9fa';
                     pre.style.overflow = 'auto';
                     pre.style.height = '100%';
                     pre.style.width = '100%';
@@ -1374,6 +1375,34 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     pre.textContent = text;
                     viewerBody.innerHTML = '';
                     viewerBody.appendChild(pre);
+                });
+            } else if (isMarkdown) {
+                blob.text().then(text => {
+                    const container = document.createElement('div');
+                    container.className = 'markdown-viewer';
+                    container.style.padding = '2rem';
+                    container.style.overflow = 'auto';
+                    container.style.height = '100%';
+                    container.style.width = '100%';
+                    
+                    // Parse markdown to HTML
+                    if (typeof marked !== 'undefined') {
+                        marked.setOptions({
+                            breaks: true,
+                            gfm: true,
+                            headerIds: true,
+                            mangle: false
+                        });
+                        container.innerHTML = marked.parse(text);
+                    } else {
+                        // Fallback to plain text if marked is not loaded
+                        const pre = document.createElement('pre');
+                        pre.textContent = text;
+                        container.appendChild(pre);
+                    }
+                    
+                    viewerBody.innerHTML = '';
+                    viewerBody.appendChild(container);
                 });
             } else if (isCsv) {
                 blob.text().then(text => {
@@ -1656,9 +1685,10 @@ function closeViewer(updateUrl = true) {
         window.viewerZoomState = null;
     }
 
-    if (updateUrl && currentFolder) {
-        const newUrl = `${window.location.pathname}?folder=${encodeURIComponent(currentFolder)}`;
-        history.pushState({ folder: currentFolder }, '', newUrl);
+    if (updateUrl) {
+        // Go back in history instead of replacing state
+        // This allows users to skip the folder they were in when they opened the file
+        history.back();
     }
 }
 

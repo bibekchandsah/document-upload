@@ -448,6 +448,8 @@ body {
     height: 100vh;
     overflow: hidden;
     transition: background-color 0.3s ease, color 0.3s ease;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Custom Scrollbar Styles */
@@ -498,6 +500,7 @@ body {
 .app-container {
     display: flex;
     height: 100%;
+    overscroll-behavior-y: contain;
 }
 
 /* Login Page Styles */
@@ -1073,6 +1076,7 @@ body.login-page {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    overscroll-behavior-y: contain;
 }
 
 .top-bar {
@@ -1225,6 +1229,8 @@ span.breadcrumb-item:hover {
     overflow-y: auto;
     flex: 1;
     transition: background-color 0.2s, border-color 0.2s;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .file-grid.drag-over {
@@ -1450,6 +1456,11 @@ span.breadcrumb-item:hover {
     font-size: 4rem;
     margin-bottom: 1rem;
     opacity: 0.5;
+}
+
+.primary-btn i{
+    font-size: 1rem !important;
+    margin-bottom: 0rem !important;
 }
 
 /* Modal */
@@ -2986,4 +2997,195 @@ body.modal-open .file-grid {
 [data-theme="dark"] .csv-cell {
     border: 1px solid #475569;
     color: #e2e8f0;
+}
+
+/* Text File Viewer Styles */
+.text-viewer {
+    background-color: #f8f9fa;
+    color: #1f2937;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+[data-theme="dark"] .text-viewer {
+    background-color: #1e293b;
+    color: #e2e8f0;
+}
+
+/* Markdown Viewer Styles */
+.markdown-viewer {
+    background-color: #fff;
+    color: #1f2937;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.markdown-viewer h1,
+.markdown-viewer h2,
+.markdown-viewer h3,
+.markdown-viewer h4,
+.markdown-viewer h5,
+.markdown-viewer h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.markdown-viewer h1 {
+    font-size: 2rem;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0.5rem;
+}
+
+.markdown-viewer h2 {
+    font-size: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 0.3rem;
+}
+
+.markdown-viewer h3 {
+    font-size: 1.25rem;
+}
+
+.markdown-viewer h4 {
+    font-size: 1.1rem;
+}
+
+.markdown-viewer p {
+    margin-bottom: 1rem;
+}
+
+.markdown-viewer a {
+    color: #3b82f6;
+    text-decoration: none;
+}
+
+.markdown-viewer a:hover {
+    text-decoration: underline;
+}
+
+.markdown-viewer code {
+    background-color: #f3f4f6;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+}
+
+.markdown-viewer pre {
+    background-color: #f3f4f6;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+.markdown-viewer pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 0.875rem;
+}
+
+.markdown-viewer blockquote {
+    border-left: 4px solid #d1d5db;
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.markdown-viewer ul,
+.markdown-viewer ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+}
+
+.markdown-viewer li {
+    margin-bottom: 0.5rem;
+}
+
+.markdown-viewer table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+}
+
+.markdown-viewer table th,
+.markdown-viewer table td {
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem 1rem;
+    text-align: left;
+}
+
+.markdown-viewer table th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+}
+
+.markdown-viewer table tr:nth-child(even) {
+    background-color: #f9fafb;
+}
+
+.markdown-viewer img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+
+.markdown-viewer hr {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 2rem 0;
+}
+
+/* Dark mode Markdown styles */
+[data-theme="dark"] .markdown-viewer {
+    background-color: #1e293b;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .markdown-viewer h1,
+[data-theme="dark"] .markdown-viewer h2 {
+    border-bottom-color: #475569;
+}
+
+[data-theme="dark"] .markdown-viewer a {
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .markdown-viewer code {
+    background-color: #334155;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .markdown-viewer pre {
+    background-color: #334155;
+}
+
+[data-theme="dark"] .markdown-viewer blockquote {
+    border-left-color: #475569;
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .markdown-viewer table th,
+[data-theme="dark"] .markdown-viewer table td {
+    border-color: #475569;
+}
+
+[data-theme="dark"] .markdown-viewer table th {
+    background-color: #334155;
+}
+
+[data-theme="dark"] .markdown-viewer table tr:nth-child(even) {
+    background-color: #334155;
+}
+
+[data-theme="dark"] .markdown-viewer hr {
+    border-top-color: #475569;
 }
