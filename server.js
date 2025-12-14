@@ -303,7 +303,7 @@ app.get('/api/search', (req, res) => {
 
 
 // 10. GitHub Integration
-const { Octokit } = require('octokit');
+const { Octokit } = require('@octokit/rest');
 
 // Helper to get Octokit instance
 const getOctokit = (token) => new Octokit({ auth: token });
