@@ -2821,4 +2821,125 @@ function initializeImageEditor() {
     }
 }
 
+// Global Keyboard Shortcuts - Use capture phase to intercept before browser
+// Extra guard: intercept Alt+N for new folder
+window.addEventListener('keydown', (e) => {
+    if (e.altKey && (e.code === 'KeyN' || e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const createFolderBtn = document.getElementById('createFolderBtn');
+        if (createFolderBtn) {
+            createFolderBtn.click();
+        }
+    }
+}, true);
+
+window.addEventListener('keydown', (e) => {
+    // Check if user is typing in a text input field (exclude checkboxes, buttons, etc.)
+    const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'password' || e.target.type === 'email' || e.target.type === 'search' || e.target.type === 'url' || e.target.type === 'tel' || e.target.type === 'number')) 
+                        || e.target.tagName === 'TEXTAREA' 
+                        || e.target.isContentEditable;
+    
+    // ALT+N: Create new folder
+    if (e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN')) {
+        if (!isTextInput) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const createFolderBtn = document.getElementById('createFolderBtn');
+            if (createFolderBtn) {
+                createFolderBtn.click();
+            }
+        } else {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+        return false;
+    }
+    
+    // DEL: Trigger delete button (works even on checkboxes/buttons)
+    if ((e.key === 'Delete' || e.code === 'Delete')) {
+        if (selectedFiles && selectedFiles.size > 0 && !isTextInput) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            if (bulkDeleteBtn) {
+                bulkDeleteBtn.click();
+            }
+        }
+        return;
+    }
+    
+    // ESC: Close modals or deselect files
+    if (e.key === 'Escape') {
+        // Check if viewer modal is open
+        if (viewerModal && !viewerModal.classList.contains('hidden')) {
+            closeViewer();
+            return;
+        }
+        
+        // Check if share modal is open
+        if (shareModal && !shareModal.classList.contains('hidden')) {
+            shareModal.classList.add('hidden');
+            return;
+        }
+        
+        // Check if folder selection modal is open
+        const folderSelectionModal = document.getElementById('folderSelectionModal');
+        if (folderSelectionModal && !folderSelectionModal.classList.contains('hidden')) {
+            folderSelectionModal.classList.add('hidden');
+            return;
+        }
+        
+        // Deselect all files if any are selected
+        if (selectedFiles && selectedFiles.size > 0) {
+            const deselectAllBtn = document.getElementById('deselectAllBtn');
+            if (deselectAllBtn) {
+                deselectAllBtn.click();
+            }
+            return;
+        }
+    }
+    
+    // CTRL+U: Trigger upload
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) {
+        if (!isTextInput) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const uploadBtn = document.getElementById('uploadBtn');
+            if (uploadBtn) {
+                uploadBtn.click();
+            }
+        }
+        return false;
+    }
+    
+    // CTRL+L: Turn off dark mode (light mode)
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L')) {
+        if (!isTextInput) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) {
+                darkModeToggle.checked = false;
+                darkModeToggle.dispatchEvent(new Event('change'));
+            }
+        }
+        return false;
+    }
+    
+    // CTRL+D: Turn on dark mode
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        if (!isTextInput) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) {
+                darkModeToggle.checked = true;
+                darkModeToggle.dispatchEvent(new Event('change'));
+            }
+        }
+        return false;
+    }
+}, true); // true = capture phase
+
 

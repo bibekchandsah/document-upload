@@ -48,8 +48,17 @@ log (username, token, shared link) in csv file
 20) support dark mode for text files (txt, csv, md, log)
 21) support markdown preview (md files)
 22) don't navigate back to opened modal
-22) edit and save with comment text files (txt, md, log)
+23) keyboard shortcuts
+✅ ESC - Closes any open modal (viewer, share, folder selection) or deselects files when files are selected
+✅ Delete - Triggers the delete button when files are selected
+✅ Alt+N - Creates a new folder (triggers the + icon)
+✅ Ctrl+U - Triggers the upload button
+✅ Ctrl+L - Turns off dark mode (Light mode)
+✅ Ctrl+D - Turns on Dark mode
 
+24) edit and save with comment text files (txt, md, log)
+zoom in iphone image
+edit in iphone image
 
 
 
