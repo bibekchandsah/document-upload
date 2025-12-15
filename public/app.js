@@ -1800,7 +1800,8 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                             </div>
                         </div>`;
                 } else {
-                    // For Office documents on public server, generate temporary share link and use Google Docs Viewer
+                    // For Office documents on public server, use Microsoft Office Online Viewer
+                    // Google Docs Viewer has authentication issues with Office documents
                     viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading document viewer...</p></div>';
                     generateTempShareLink(file, folderToUse)
                         .then(shareUrl => {
@@ -1811,17 +1812,18 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                                 .then(resp => console.log('Share URL HEAD test:', resp.status, resp.headers.get('content-type')))
                                 .catch(err => console.error('Share URL HEAD test failed:', err));
                             
-                            // Try viewer URL format instead of gview
-                            const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(shareUrl)}&embedded=true`;
-                            console.log('Google Viewer URL for document:', googleViewerUrl);
+                            // Use Microsoft Office Online Viewer (more reliable for Office docs)
+                            const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(shareUrl)}`;
+                            console.log('Office Viewer URL for document:', officeViewerUrl);
                             console.log('File type:', file.type);
                             console.log('File name:', file.name);
 
                             const iframe = document.createElement('iframe');
-                            iframe.src = googleViewerUrl;
+                            iframe.src = officeViewerUrl;
                             iframe.style.width = '100%';
                             iframe.style.height = '100%';
                             iframe.style.border = 'none';
+                            iframe.setAttribute('frameborder', '0');
                             
                             // Add load event listener
                             iframe.onload = () => {
@@ -1852,9 +1854,9 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
 
                             // Add timeout fallback
                             setTimeout(() => {
-                                if (viewerBody.querySelector('iframe') && viewerBody.querySelector('iframe').src === googleViewerUrl) {
+                                if (viewerBody.querySelector('iframe') && viewerBody.querySelector('iframe').src === officeViewerUrl) {
                                     console.log('Adding fallback button for document viewer');
-                                    // If Google Docs Viewer fails silently, offer alternative
+                                    // If Office Viewer fails silently, offer alternatives
                                     const fallbackDiv = document.createElement('div');
                                     fallbackDiv.style.position = 'absolute';
                                     fallbackDiv.style.bottom = '10px';
