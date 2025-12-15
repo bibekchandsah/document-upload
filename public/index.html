@@ -132,8 +132,10 @@
             <div class="modal-header">
                 <h3 id="viewerFileName">Document Name</h3>
                 <div class="modal-actions">
-                    <button id="editImageBtn" class="icon-btn" title="Edit" style="display: none;"><i
+                    <button id="editImageBtn" class="icon-btn" title="Edit Image" style="display: none;"><i
                             class="fas fa-edit"></i></button>
+                    <button id="editTextBtn" class="icon-btn" title="Edit File" style="display: none;"><i
+                            class="fas fa-pen"></i></button>
                     <button id="shareBtn" class="icon-btn" title="Share"><i class="fas fa-share-alt"></i></button>
                     <a id="downloadLink" href="#" class="icon-btn" title="Download"><i class="fas fa-download"></i></a>
                     <button id="printBtn" class="icon-btn" title="Print"><i class="fas fa-print"></i></button>
@@ -257,6 +259,42 @@
                     </div>
                     <button id="rotateRightFineBtn" class="rotation-btn" title="Rotate Right 1°"><i class="fas fa-chevron-right"></i></button>
                     <button id="rotationResetBtn" class="rotation-btn" title="Reset Rotation"><i class="fas fa-sync-alt"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Text Editor Modal -->
+    <div id="textEditorModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 90%; height: 90%;">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-edit"></i> Edit File</h3>
+                <div class="editor-actions">
+                    <button id="saveTextBtn" class="primary-btn"><i class="fas fa-save"></i> Save Changes</button>
+                    <button id="closeTextEditorBtn" class="icon-btn"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                    <label for="textEditorContent" style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-color);">
+                        <i class="fas fa-file-code"></i> File Content
+                    </label>
+                    <textarea id="textEditorContent" 
+                        style="flex: 1; padding: 1rem; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; 
+                               font-size: 0.875rem; line-height: 1.5; border: 1px solid var(--border-color); 
+                               border-radius: 0.5rem; width: 85vw; background: var(--card-bg); color: var(--text-color);"
+                        spellcheck="false"></textarea>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label for="commitMessage" style="font-weight: 600; color: var(--text-color);">
+                        <i class="fas fa-comment"></i> Commit Message <span style="color: #ef4444;">*</span>
+                    </label>
+                    <input type="text" id="commitMessage" placeholder="Describe your changes..." 
+                        style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; 
+                               font-size: 0.875rem; background: var(--card-bg); color: var(--text-color);" />
+                    <p style="font-size: 0.75rem; color: var(--secondary-text); margin: 0;">
+                        <i class="fas fa-info-circle"></i> This message will be used as the commit message in GitHub
+                    </p>
                 </div>
             </div>
         </div>

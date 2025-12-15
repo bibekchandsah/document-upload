@@ -650,6 +650,93 @@ app.post('/api/github/create-folder', async (req, res) => {
     }
 });
 
+// Update File Content (for text editor)
+app.post('/api/github/update', upload.single('file'), async (req, res) => {
+    const token = req.headers['x-gh-token'];
+    const owner = req.headers['x-gh-user'];
+    const repo = req.headers['x-gh-repo'];
+    const branch = req.headers['x-gh-branch'] || 'main';
+    
+    const folder = req.body.folder || '';
+    const commitMessage = req.body.commitMessage || 'Update file';
+
+    if (!token || !owner || !repo || !req.file) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        const octokit = getOctokit(token);
+
+        // Read file content
+        const fileContent = fs.readFileSync(req.file.path);
+        const base64Content = fileContent.toString('base64');
+
+        // Check if uploads folder exists
+        let hasUploadsFolder = false;
+        try {
+            await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: 'uploads',
+                ref: branch
+            });
+            hasUploadsFolder = true;
+        } catch (err) {
+            if (err.status === 404) {
+                hasUploadsFolder = false;
+            }
+        }
+
+        // Construct path
+        const targetPath = hasUploadsFolder
+            ? (folder ? `uploads/${folder}/${req.file.originalname}` : `uploads/${req.file.originalname}`)
+            : (folder ? `${folder}/${req.file.originalname}` : req.file.originalname);
+
+        // Get current file SHA (required for update)
+        let fileSha;
+        try {
+            const { data } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: targetPath,
+                ref: branch
+            });
+            fileSha = data.sha;
+        } catch (err) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Update file
+        await octokit.rest.repos.createOrUpdateFileContents({
+            owner,
+            repo,
+            path: targetPath,
+            message: commitMessage,
+            content: base64Content,
+            sha: fileSha,
+            branch
+        });
+
+        // Clean up temp file
+        fs.unlinkSync(req.file.path);
+
+        // Log activity
+        logActivity(owner, 'update', req.file.originalname, folder, 'github');
+
+        res.json({ 
+            message: 'File updated successfully',
+            filename: req.file.originalname
+        });
+    } catch (error) {
+        console.error('Error updating file:', error);
+        // Clean up temp file on error
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({ error: error.message || 'Failed to update file' });
+    }
+});
+
 // Delete File or Folder
 app.delete('/api/github/delete', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];

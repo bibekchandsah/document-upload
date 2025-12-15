@@ -57,8 +57,10 @@ log (username, token, shared link) in csv file
 ✅ Ctrl+D - Turns on Dark mode
 24) storage view in profile (used storage, free storage)
 25) zoom & edit for iphone image
+24) edit and save with comment text and markdown files (txt, json, md, log files)
 
-24) edit and save with comment text files (txt, md, log)
+overwrite file with confirmation
+sharing file error
 
 
 

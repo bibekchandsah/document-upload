@@ -14,6 +14,8 @@ const viewerModal = document.getElementById('viewerModal');
 const viewerBody = document.getElementById('viewerBody');
 const viewerFileName = document.getElementById('viewerFileName');
 const closeViewerBtn = document.getElementById('closeViewerBtn');
+const editImageBtn = document.getElementById('editImageBtn');
+const editTextBtn = document.getElementById('editTextBtn');
 const downloadLink = document.getElementById('downloadLink');
 const printBtn = document.getElementById('printBtn');
 const searchInput = document.getElementById('searchInput');
@@ -1162,14 +1164,18 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
 
     const folderToUse = folderOverride !== null ? folderOverride : currentFolder;
 
-    // Show/hide edit button based on file type (including iPhone formats)
+    // Show/hide edit buttons based on file type
     if (editImageBtn) {
         const isEditableImage = file.type.includes('image') || file.name.match(/\.(heic|heif)$/i);
-        if (isEditableImage) {
-            editImageBtn.style.display = 'block';
-        } else {
-            editImageBtn.style.display = 'none';
-        }
+        editImageBtn.style.display = isEditableImage ? 'block' : 'none';
+        console.log('Image edit button:', isEditableImage ? 'shown' : 'hidden', 'for', file.name);
+    }
+    if (editTextBtn) {
+        const isEditableText = file.name.match(/\.(txt|json|md|html|css|js|log|csv|xml|yml|yaml|ini|conf|cfg)$/i);
+        editTextBtn.style.display = isEditableText ? 'block' : 'none';
+        console.log('Text edit button:', isEditableText ? 'shown' : 'hidden', 'for', file.name, 'matched:', isEditableText);
+    } else {
+        console.log('editTextBtn element not found!');
     }
 
     if (updateUrl) {
@@ -2909,6 +2915,137 @@ function initializeImageEditor() {
             });
         }
     }
+}
+
+// Text Editor Functionality
+let currentEditingFile = null;
+let currentEditingFileContent = null;
+
+const textEditorModal = document.getElementById('textEditorModal');
+const textEditorContent = document.getElementById('textEditorContent');
+const commitMessage = document.getElementById('commitMessage');
+const saveTextBtn = document.getElementById('saveTextBtn');
+const closeTextEditorBtn = document.getElementById('closeTextEditorBtn');
+
+// Open text editor
+if (editTextBtn) {
+    editTextBtn.addEventListener('click', async () => {
+        try {
+            // Get current file info
+            currentEditingFile = currentViewedFile;
+            
+            // Fetch file content
+            const filePath = currentFolder ? `${currentFolder}/${currentEditingFile.name}` : currentEditingFile.name;
+            const fileUrl = `${API_BASE}/github/view?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}`;
+            
+            showProcessing('Loading file...');
+            const response = await fetch(fileUrl, {
+                headers: { 'Authorization': `Bearer ${ghToken}` }
+            });
+            if (!response.ok) throw new Error('Failed to load file');
+            
+            const blob = await response.blob();
+            const text = await blob.text();
+            currentEditingFileContent = text;
+            
+            // Populate editor
+            textEditorContent.value = text;
+            commitMessage.value = `Update ${currentEditingFile.name}`;
+            
+            // Show editor modal
+            textEditorModal.classList.remove('hidden');
+            hideProcessing();
+            
+            // Focus on textarea
+            textEditorContent.focus();
+        } catch (error) {
+            console.error('Error opening text editor:', error);
+            hideProcessing();
+            alert('Failed to open editor: ' + error.message);
+        }
+    });
+}
+
+// Save text changes
+if (saveTextBtn) {
+    saveTextBtn.addEventListener('click', async () => {
+        if (!commitMessage.value.trim()) {
+            alert('Please enter a commit message');
+            commitMessage.focus();
+            return;
+        }
+        
+        try {
+            const newContent = textEditorContent.value;
+            
+            // Create form data
+            const formData = new FormData();
+            const blob = new Blob([newContent], { type: 'text/plain' });
+            formData.append('file', blob, currentEditingFile.name);
+            formData.append('folder', currentFolder || '');
+            formData.append('commitMessage', commitMessage.value);
+            
+            showProcessing('Saving changes...');
+            
+            const response = await fetch(`${API_BASE}/github/update`, {
+                method: 'POST',
+                headers: {
+                    'x-gh-token': ghToken,
+                    'x-gh-user': ghUser,
+                    'x-gh-repo': ghRepo,
+                    'x-gh-branch': ghBranch
+                },
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to save changes');
+            }
+            
+            hideProcessing();
+            alert('File saved successfully!');
+            
+            // Close editor and refresh viewer
+            textEditorModal.classList.add('hidden');
+            
+            // Reload the file in viewer
+            openViewer(currentEditingFile, false, currentFolder);
+            
+            // Refresh file list
+            loadFiles(currentFolder);
+        } catch (error) {
+            console.error('Error saving file:', error);
+            hideProcessing();
+            alert('Failed to save file: ' + error.message);
+        }
+    });
+}
+
+// Close text editor
+if (closeTextEditorBtn) {
+    closeTextEditorBtn.addEventListener('click', () => {
+        if (textEditorContent.value !== currentEditingFileContent) {
+            if (!confirm('You have unsaved changes. Are you sure you want to close?')) {
+                return;
+            }
+        }
+        textEditorModal.classList.add('hidden');
+    });
+}
+
+// Close text editor on background click
+if (textEditorModal) {
+    textEditorModal.addEventListener('click', (e) => {
+        if (e.target === textEditorModal) {
+            if (textEditorContent.value !== currentEditingFileContent) {
+                if (!confirm('You have unsaved changes. Are you sure you want to close?')) {
+                    return;
+                }
+            }
+            textEditorModal.classList.add('hidden');
+        }
+    });
 }
 
 // Global Keyboard Shortcuts - Use capture phase to intercept before browser
