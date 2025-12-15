@@ -1015,17 +1015,33 @@ fileGrid.addEventListener('drop', async (e) => {
 });
 
 // Show duplicate files modal and return user action
-function showDuplicateFilesModal(duplicateFiles, allFiles) {
+function showDuplicateFilesModal(duplicateFiles, newFilesCount) {
     return new Promise((resolve) => {
         const modal = document.getElementById('duplicateFilesModal');
+        const filesInfo = document.getElementById('duplicateFilesInfo');
         const filesList = document.getElementById('duplicateFilesList');
+        const buttonsContainer = document.getElementById('duplicateButtonsContainer');
         const cancelBtn = document.getElementById('cancelDuplicateBtn');
+        const skipBtn = document.getElementById('skipDuplicateBtn');
         const renameBtn = document.getElementById('renameDuplicateBtn');
         const overrideBtn = document.getElementById('overrideDuplicateBtn');
         
+        // Show file counts and adjust button layout
+        if (newFilesCount > 0) {
+            filesInfo.innerHTML = `<i class="fas fa-check-circle" style="color: #10b981;"></i> ${newFilesCount} new file(s) + <i class="fas fa-exclamation-circle" style="color: #f59e0b;"></i> ${duplicateFiles.length} duplicate(s)`;
+            skipBtn.style.display = 'block';
+            // 4 buttons: 2x2 grid
+            buttonsContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
+        } else {
+            filesInfo.innerHTML = `<i class="fas fa-exclamation-circle" style="color: #f59e0b;"></i> ${duplicateFiles.length} duplicate file(s) found`;
+            skipBtn.style.display = 'none';
+            // 3 buttons: single row
+            buttonsContainer.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        }
+        
         // Populate files list
         filesList.innerHTML = duplicateFiles.map(f => 
-            `<div style="padding: 0.5rem; color: var(--text-color);"><i class="fas fa-file" style="margin-right: 0.5rem; color: #f59e0b;"></i>${f}</div>`
+            `<div style="padding: 0.75rem; color: var(--text-color); border: 1px solid var(--border-color); border-radius: 2rem;"><i class="fas fa-file" style="margin-right: 0.5rem; color: #f59e0b;"></i>${f}</div>`
         ).join('');
         
         // Show modal
@@ -1035,6 +1051,7 @@ function showDuplicateFilesModal(duplicateFiles, allFiles) {
         const cleanup = () => {
             modal.classList.add('hidden');
             cancelBtn.onclick = null;
+            skipBtn.onclick = null;
             renameBtn.onclick = null;
             overrideBtn.onclick = null;
         };
@@ -1042,6 +1059,11 @@ function showDuplicateFilesModal(duplicateFiles, allFiles) {
         cancelBtn.onclick = () => {
             cleanup();
             resolve('cancel');
+        };
+        
+        skipBtn.onclick = () => {
+            cleanup();
+            resolve('skip');
         };
         
         renameBtn.onclick = () => {
@@ -1136,12 +1158,15 @@ async function handleUpload(files) {
 
     // Show warning for duplicate files
     if (duplicateFiles.length > 0) {
-        const action = await showDuplicateFilesModal(duplicateFiles, validFiles);
+        const action = await showDuplicateFilesModal(duplicateFiles, validFiles.length);
         
         if (action === 'cancel') {
             uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload';
             uploadBtn.disabled = false;
             return;
+        } else if (action === 'skip') {
+            // Continue with only new files, skip duplicates
+            // validFiles already contains only new files
         } else if (action === 'rename') {
             // Handle renaming duplicates - only rename the duplicate ones
             const renamedDuplicates = await handleRenameFiles(duplicateFileObjects, duplicateFiles);

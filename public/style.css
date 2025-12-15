@@ -1623,6 +1623,21 @@ span.breadcrumb-item:hover {
     height: 100%;
 }
 
+/* Duplicate files container */
+.duplicate-files-list{
+    /* background: var(--hover-bg); */
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
 /* Folder Selection Modal */
 .folder-selection-modal {
     max-width: 550px;

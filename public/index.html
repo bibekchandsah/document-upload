@@ -302,27 +302,33 @@
 
     <!-- Duplicate Files Modal -->
     <div id="duplicateFilesModal" class="modal hidden">
-        <div class="modal-content" style="max-width: 600px; height: auto;">
+        <div class="modal-content" style="max-width: 650px; height: auto;">
             <div class="modal-header">
                 <h3><i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> Duplicate Files Detected</h3>
             </div>
             <div class="modal-body" style="padding: 1.5rem;">
-                <p style="margin-bottom: 1rem; color: var(--text-color);">
-                    The following files already exist in this folder:
+                <p id="duplicateFilesInfo" style="margin-bottom: 1rem; color: var(--text-color); font-weight: 500;">
                 </p>
-                <div id="duplicateFilesList" style="background: var(--hover-bg); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; max-height: 200px; overflow-y: auto;">
+                <p style="margin-bottom: 0.5rem; color: var(--text-color);">
+                    The following files already exist:
+                </p>
+                <div id="duplicateFilesList" class="duplicate-files-list">
+                    <!-- Duplicate files will be listed here -->
                 </div>
                 <p style="margin-bottom: 1.5rem; font-size: 0.875rem; color: var(--secondary-text);">
-                    <i class="fas fa-info-circle"></i> Choose how to handle these files:
+                    <i class="fas fa-info-circle"></i> Choose how to handle the duplicate files:
                 </p>
-                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                    <button id="cancelDuplicateBtn" class="secondary-btn" style="flex: 1; min-width: 150px;">
-                        <i class="fas fa-times"></i> Cancel
+                <div id="duplicateButtonsContainer" style="display: grid; gap: 0.75rem;">
+                    <button id="cancelDuplicateBtn" class="secondary-btn">
+                        <i class="fas fa-times"></i> Cancel All
                     </button>
-                    <button id="renameDuplicateBtn" class="primary-btn" style="flex: 1; min-width: 150px; background: #3b82f6;">
+                    <button id="skipDuplicateBtn" class="primary-btn" style="background: #10b981;">
+                        <i class="fas fa-forward"></i> Skip Duplicates
+                    </button>
+                    <button id="renameDuplicateBtn" class="primary-btn" style="background: #3b82f6;">
                         <i class="fas fa-edit"></i> Rename
                     </button>
-                    <button id="overrideDuplicateBtn" class="primary-btn" style="flex: 1; min-width: 150px; background: #ef4444;">
+                    <button id="overrideDuplicateBtn" class="primary-btn" style="background: #ef4444;">
                         <i class="fas fa-sync-alt"></i> Override
                     </button>
                 </div>

@@ -59,7 +59,7 @@ log (username, token, shared link) in csv file
 25) zoom & edit for iphone image
 24) edit and save with comment text and markdown files (txt, json, md, log files)
 25) sharing file errors fixed
-26) overwrite file with confirmation
+26) overwrite, skip, rename file with confirmation (duplicate file names detected while uploading)
 
 
 
