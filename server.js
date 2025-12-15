@@ -37,6 +37,9 @@ const shareLinks = new Map();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy for Railway/Render deployments (needed for HTTPS detection)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -1311,7 +1314,12 @@ app.post('/api/share/create', async (req, res) => {
             token: token // Store GitHub token for proxying access
         });
 
-        const shareUrl = `${req.protocol}://${req.get('host')}/api/share/${username}/${shareToken}`;
+        // Use https for share URLs (Railway/Render use proxies that terminate SSL)
+        // Check X-Forwarded-Proto header first, then fall back to req.protocol
+        const protocol = req.get('x-forwarded-proto') || req.protocol;
+        const shareUrl = `${protocol}://${req.get('host')}/api/share/${username}/${shareToken}`;
+        
+        console.log(`Share link created with protocol: ${protocol}, URL: ${shareUrl}`);
         
         // Log share link creation (non-blocking)
         logActivity('shared_link', username, shareUrl).catch(err => {
