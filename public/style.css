@@ -1137,6 +1137,7 @@ body.login-page {
     align-items: center;
     gap: 0.5rem;
     transition: background-color 0.2s;
+    justify-content: center;
 }
 
 .primary-btn:hover {

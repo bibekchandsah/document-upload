@@ -1014,13 +1014,91 @@ fileGrid.addEventListener('drop', async (e) => {
     handleUpload(files);
 });
 
+// Show duplicate files modal and return user action
+function showDuplicateFilesModal(duplicateFiles, allFiles) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('duplicateFilesModal');
+        const filesList = document.getElementById('duplicateFilesList');
+        const cancelBtn = document.getElementById('cancelDuplicateBtn');
+        const renameBtn = document.getElementById('renameDuplicateBtn');
+        const overrideBtn = document.getElementById('overrideDuplicateBtn');
+        
+        // Populate files list
+        filesList.innerHTML = duplicateFiles.map(f => 
+            `<div style="padding: 0.5rem; color: var(--text-color);"><i class="fas fa-file" style="margin-right: 0.5rem; color: #f59e0b;"></i>${f}</div>`
+        ).join('');
+        
+        // Show modal
+        modal.classList.remove('hidden');
+        
+        // Set up event handlers
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            cancelBtn.onclick = null;
+            renameBtn.onclick = null;
+            overrideBtn.onclick = null;
+        };
+        
+        cancelBtn.onclick = () => {
+            cleanup();
+            resolve('cancel');
+        };
+        
+        renameBtn.onclick = () => {
+            cleanup();
+            resolve('rename');
+        };
+        
+        overrideBtn.onclick = () => {
+            cleanup();
+            resolve('override');
+        };
+    });
+}
+
+// Handle renaming duplicate files
+async function handleRenameFiles(files, duplicateNames) {
+    const filesArray = Array.from(files);
+    const renamedFiles = [];
+    
+    for (const file of filesArray) {
+        if (duplicateNames.includes(file.name)) {
+            // Ask user for new name
+            const nameParts = file.name.split('.');
+            const extension = nameParts.length > 1 ? '.' + nameParts.pop() : '';
+            const baseName = nameParts.join('.');
+            
+            let newName = prompt(`Enter new name for "${file.name}":`, `${baseName}_copy${extension}`);
+            
+            if (!newName) {
+                // User cancelled, skip this file
+                continue;
+            }
+            
+            // Ensure extension is preserved if not included
+            if (extension && !newName.endsWith(extension)) {
+                newName += extension;
+            }
+            
+            // Create a new File object with the new name
+            const renamedFile = new File([file], newName, { type: file.type });
+            renamedFiles.push(renamedFile);
+        } else {
+            renamedFiles.push(file);
+        }
+    }
+    
+    return renamedFiles;
+}
+
 async function handleUpload(files) {
     uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
     // GitHub file size limit is 100MB
     const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB in bytes
     const oversizedFiles = [];
-    const validFiles = [];
+    let validFiles = [];
     const duplicateFiles = [];
+    const duplicateFileObjects = [];
     let totalSize = 0;
 
     // Get existing file names in current folder
@@ -1034,6 +1112,7 @@ async function handleUpload(files) {
             oversizedFiles.push({ name: file.name, size: formatSize(file.size) });
         } else if (existingFileNames.includes(file.name)) {
             duplicateFiles.push(file.name);
+            duplicateFileObjects.push(file);
         } else {
             validFiles.push(file);
             totalSize += file.size;
@@ -1057,15 +1136,21 @@ async function handleUpload(files) {
 
     // Show warning for duplicate files
     if (duplicateFiles.length > 0) {
-        const fileList = duplicateFiles.map(f => `• ${f}`).join('\n');
-        alert(
-            `❌ Duplicate Files Detected!\n\n` +
-            `The following files already exist in this folder:\n${fileList}\n\n` +
-            `Please rename these files before uploading.`
-        );
-        uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload';
-        uploadBtn.disabled = false;
-        return;
+        const action = await showDuplicateFilesModal(duplicateFiles, validFiles);
+        
+        if (action === 'cancel') {
+            uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload';
+            uploadBtn.disabled = false;
+            return;
+        } else if (action === 'rename') {
+            // Handle renaming duplicates - only rename the duplicate ones
+            const renamedDuplicates = await handleRenameFiles(duplicateFileObjects, duplicateFiles);
+            // Add renamed files to validFiles
+            validFiles = [...validFiles, ...renamedDuplicates];
+        } else if (action === 'override') {
+            // Add duplicate files to validFiles - server will override them
+            validFiles = [...validFiles, ...duplicateFileObjects];
+        }
     }
 
     if (validFiles.length === 0) {
