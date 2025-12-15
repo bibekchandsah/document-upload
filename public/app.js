@@ -1531,38 +1531,59 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                 // Check if mobile device
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
 
-                if (isMobile) {
-                    // Use Google Docs Viewer for mobile devices
-                    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading PDF viewer...</p></div>';
+                // Helper function for PDF fallback UI
+                const showPDFFallback = (url, filename, shareUrl = null) => {
+                    const buttons = [];
+                    
+                    // Add "View with Google" button if share URL is available
+                    if (shareUrl) {
+                        const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(shareUrl)}`;
+                        buttons.push(`
+                            <a href="${googleViewerUrl}" target="_blank" rel="noopener noreferrer"
+                               class="primary-btn" style="display: inline-block; text-decoration: none; padding: 0.75rem 1.5rem; background: #4285f4;">
+                                <i class="fab fa-google"></i> View with Google
+                            </a>
+                        `);
+                    }
+                    
+                    buttons.push(`
+                        <a href="${url}" download="${filename}" 
+                           class="primary-btn" style="display: inline-block; text-decoration: none; padding: 0.75rem 1.5rem;">
+                            <i class="fas fa-download"></i> Download PDF
+                        </a>
+                    `);
+                    
+                    buttons.push(`
+                        <button onclick="window.open('${url}', '_blank')" 
+                                class="primary-btn" style="padding: 0.75rem 1.5rem;">
+                            <i class="fas fa-external-link-alt"></i> Open in Browser
+                        </button>
+                    `);
+                    
+                    viewerBody.innerHTML = `
+                        <div class="empty-state" style="padding: 2rem; text-align: center;">
+                            <i class="fas fa-file-pdf" style="font-size: 4rem; color: #ef4444; margin-bottom: 1rem;"></i>
+                            <h3 style="margin-bottom: 0.5rem; color: var(--text-color);">${file.name}</h3>
+                            <p style="margin-bottom: 1.5rem; color: var(--secondary-text); font-size: 0.875rem;">
+                                ${isMobile ? 'PDF preview not available on this device' : 'Unable to display PDF inline'}
+                            </p>
+                            <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; padding: 0 1rem;">
+                                ${buttons.join('')}
+                            </div>
+                        </div>`;
+                };
 
+                if (isMobile) {
+                    // For mobile: show options directly without attempting iframe
+                    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Preparing PDF...</p></div>';
+                    
+                    // Generate share link for Google Docs Viewer option
                     generateTempShareLink(file, folderToUse)
                         .then(shareUrl => {
-                            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
-                            const iframe = document.createElement('iframe');
-                            iframe.src = googleViewerUrl;
-                            iframe.style.width = '100%';
-                            iframe.style.height = '100%';
-                            iframe.style.border = 'none';
-                            
-                            // Handle iframe load error with timeout
-                            let loaded = false;
-                            const loadTimeout = setTimeout(() => {
-                                if (!loaded) {
-                                    console.error('Google Docs Viewer timed out');
-                                    showPDFFallback(objectUrl, file.name);
-                                }
-                            }, 10000); // 10 second timeout
-                            
-                            iframe.onload = () => {
-                                loaded = true;
-                                clearTimeout(loadTimeout);
-                            };
-                            
-                            viewerBody.innerHTML = '';
-                            viewerBody.appendChild(iframe);
+                            showPDFFallback(objectUrl, file.name, shareUrl);
                         })
                         .catch(err => {
-                            console.error('Failed to generate share link for Google Viewer:', err);
+                            console.error('Failed to generate share link:', err);
                             showPDFFallback(objectUrl, file.name);
                         });
                 } else {
@@ -1574,28 +1595,6 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     iframe.style.border = 'none';
                     viewerBody.innerHTML = '';
                     viewerBody.appendChild(iframe);
-                }
-                
-                // Helper function for PDF fallback
-                function showPDFFallback(url, filename) {
-                    viewerBody.innerHTML = `
-                        <div class="empty-state" style="padding: 2rem; text-align: center;">
-                            <i class="fas fa-file-pdf" style="font-size: 4rem; color: #ef4444; margin-bottom: 1rem;"></i>
-                            <h3 style="margin-bottom: 1rem; color: var(--text-color);">PDF Preview Unavailable</h3>
-                            <p style="margin-bottom: 1.5rem; color: var(--secondary-text);">
-                                Unable to load PDF viewer. Please download or open in a new tab.
-                            </p>
-                            <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
-                                <a href="${url}" download="${filename}" 
-                                   class="primary-btn" style="display: inline-block; text-decoration: none; padding: 0.75rem 1.5rem;">
-                                    <i class="fas fa-download"></i> Download PDF
-                                </a>
-                                <button onclick="window.open('${url}', '_blank')" 
-                                        class="primary-btn" style="padding: 0.75rem 1.5rem;">
-                                    <i class="fas fa-external-link-alt"></i> Open in New Tab
-                                </button>
-                            </div>
-                        </div>`;
                 }
             } else if (isVideo) {
                 const video = document.createElement('video');
