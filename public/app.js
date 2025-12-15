@@ -1574,18 +1574,48 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                 };
 
                 if (isMobile) {
-                    // For mobile: show options directly without attempting iframe
-                    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Preparing PDF...</p></div>';
-                    
-                    // Generate share link for Google Docs Viewer option
-                    generateTempShareLink(file, folderToUse)
-                        .then(shareUrl => {
-                            showPDFFallback(objectUrl, file.name, shareUrl);
-                        })
-                        .catch(err => {
-                            console.error('Failed to generate share link:', err);
-                            showPDFFallback(objectUrl, file.name);
-                        });
+                    // For mobile: Try Google Docs Viewer first if on public server, otherwise show options
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        // Localhost: show options directly
+                        showPDFFallback(objectUrl, file.name, null);
+                    } else {
+                        // Public server: try Google Docs Viewer with fallback
+                        viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading PDF viewer...</p></div>';
+                        
+                        generateTempShareLink(file, folderToUse)
+                            .then(shareUrl => {
+                                console.log('Attempting to load PDF in Google Docs Viewer');
+                                const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(shareUrl)}&embedded=true`;
+                                
+                                const iframe = document.createElement('iframe');
+                                iframe.src = googleViewerUrl;
+                                iframe.style.width = '100%';
+                                iframe.style.height = '100%';
+                                iframe.style.border = 'none';
+                                
+                                viewerBody.innerHTML = '';
+                                viewerBody.appendChild(iframe);
+                                
+                                // Add fallback button after timeout if viewer doesn't load well
+                                setTimeout(() => {
+                                    const fallbackBtn = document.createElement('div');
+                                    fallbackBtn.style.position = 'absolute';
+                                    fallbackBtn.style.bottom = '10px';
+                                    fallbackBtn.style.left = '50%';
+                                    fallbackBtn.style.transform = 'translateX(-50%)';
+                                    fallbackBtn.innerHTML = `
+                                        <button onclick="window.open('${shareUrl}', '_blank')" class="primary-btn" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                            <i class="fas fa-external-link-alt"></i> Having issues? Open in new tab
+                                        </button>`;
+                                    viewerBody.style.position = 'relative';
+                                    viewerBody.appendChild(fallbackBtn);
+                                }, 3000);
+                            })
+                            .catch(err => {
+                                console.error('Failed to generate share link for PDF:', err);
+                                showPDFFallback(objectUrl, file.name, null);
+                            });
+                    }
                 } else {
                     // Desktop: use native PDF viewer
                     const iframe = document.createElement('iframe');
@@ -1766,26 +1796,39 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading document viewer...</p></div>';
                     generateTempShareLink(file, folderToUse)
                         .then(shareUrl => {
-                            console.log('Generated share URL:', shareUrl);
+                            console.log('Generated share URL for document:', shareUrl);
                             const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
-                            console.log('Google Viewer URL:', googleViewerUrl);
+                            console.log('Google Viewer URL for document:', googleViewerUrl);
+                            console.log('File type:', file.type);
+                            console.log('File name:', file.name);
 
                             const iframe = document.createElement('iframe');
                             iframe.src = googleViewerUrl;
                             iframe.style.width = '100%';
                             iframe.style.height = '100%';
                             iframe.style.border = 'none';
+                            
+                            // Add load event listener
+                            iframe.onload = () => {
+                                console.log('Iframe loaded successfully');
+                            };
 
                             // Add error handler for iframe
-                            iframe.onerror = () => {
-                                console.error('Iframe failed to load');
+                            iframe.onerror = (e) => {
+                                console.error('Iframe failed to load:', e);
                                 viewerBody.innerHTML = `
                                     <div class="empty-state">
                                         <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
                                         <p>Failed to load document viewer</p>
-                                        <a href="${shareUrl}" target="_blank" class="primary-btn" style="margin-top: 1rem;">
-                                            <i class="fas fa-external-link-alt"></i> Open in New Tab
-                                        </a>
+                                        <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">Try opening the document directly</p>
+                                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                                            <a href="${shareUrl}" target="_blank" class="primary-btn">
+                                                <i class="fas fa-external-link-alt"></i> Open in New Tab
+                                            </a>
+                                            <a href="${objectUrl}" download="${file.name}" class="primary-btn">
+                                                <i class="fas fa-download"></i> Download
+                                            </a>
+                                        </div>
                                     </div>`;
                             };
 
@@ -1795,7 +1838,7 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                             // Add timeout fallback
                             setTimeout(() => {
                                 if (viewerBody.querySelector('iframe') && viewerBody.querySelector('iframe').src === googleViewerUrl) {
-                                    // Check if iframe loaded successfully by checking if there's content
+                                    console.log('Adding fallback button for document viewer');
                                     // If Google Docs Viewer fails silently, offer alternative
                                     const fallbackDiv = document.createElement('div');
                                     fallbackDiv.style.position = 'absolute';
@@ -1811,13 +1854,20 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                             }, 3000);
                         })
                         .catch(err => {
-                            console.error('Failed to generate share link:', err);
+                            console.error('Failed to generate share link for document:', err);
                             viewerBody.innerHTML = `
                                 <div class="empty-state">
                                     <i class="fas fa-file-word"></i>
                                     <p>Failed to load document preview</p>
                                     <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">${err.message}</p>
-                                    <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="margin-top: 1rem;">Download</a>
+                                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                                        <a href="${objectUrl}" download="${file.name}" class="primary-btn">
+                                            <i class="fas fa-download"></i> Download
+                                        </a>
+                                        <button onclick="window.open('${objectUrl}', '_blank')" class="primary-btn" style="background: #10b981;">
+                                            <i class="fas fa-external-link-alt"></i> Open
+                                        </button>
+                                    </div>
                                 </div>`;
                         });
                 }
@@ -2036,6 +2086,8 @@ generateLinkBtn.onclick = async () => {
 async function generateTempShareLink(file, folder) {
     const filePath = folder ? `${folder}/${file.name}` : file.name;
 
+    console.log('Creating share link for:', filePath);
+
     const res = await fetch(`${API_BASE}/share/create`, {
         method: 'POST',
         headers: {
@@ -2052,12 +2104,17 @@ async function generateTempShareLink(file, folder) {
     });
 
     if (!res.ok) {
-        throw new Error('Failed to create share link');
+        const errorText = await res.text();
+        console.error('Share link creation failed:', res.status, errorText);
+        throw new Error(`Failed to create share link: ${res.status}`);
     }
 
     const data = await res.json();
+    const shareUrl = data.url + '/download';
+    console.log('Share link created successfully:', shareUrl);
+    
     // Return the download URL (without download=true parameter for inline viewing)
-    return data.url + '/download';
+    return shareUrl;
 }
 
 
