@@ -1579,50 +1579,41 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                         // Localhost: show options directly
                         showPDFFallback(objectUrl, file.name, null);
                     } else {
-                        // Public server: try Google Docs Viewer with fallback
-                        viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading PDF viewer...</p></div>';
+                        // Mobile on public server: Use direct blob URL in iframe
+                        // Most mobile browsers have native PDF support now
+                        console.log('Using native mobile PDF viewer with blob URL');
+                        viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading PDF...</p></div>';
                         
-                        generateTempShareLink(file, folderToUse)
-                            .then(shareUrl => {
-                                console.log('Attempting to load PDF in Google Docs Viewer');
-                                console.log('PDF Share URL:', shareUrl);
-                                
-                                // Test if share URL is accessible
-                                fetch(shareUrl, { method: 'HEAD' })
-                                    .then(resp => console.log('PDF Share URL HEAD test:', resp.status, resp.headers.get('content-type')))
-                                    .catch(err => console.error('PDF Share URL HEAD test failed:', err));
-                                
-                                const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(shareUrl)}&embedded=true`;
-                                console.log('PDF Google Viewer URL:', googleViewerUrl);
-                                
-                                const iframe = document.createElement('iframe');
-                                iframe.src = googleViewerUrl;
-                                iframe.style.width = '100%';
-                                iframe.style.height = '100%';
-                                iframe.style.border = 'none';
-                                
-                                viewerBody.innerHTML = '';
-                                viewerBody.appendChild(iframe);
-                                
-                                // Add fallback button after timeout if viewer doesn't load well
-                                setTimeout(() => {
-                                    const fallbackBtn = document.createElement('div');
-                                    fallbackBtn.style.position = 'absolute';
-                                    fallbackBtn.style.bottom = '10px';
-                                    fallbackBtn.style.left = '50%';
-                                    fallbackBtn.style.transform = 'translateX(-50%)';
-                                    fallbackBtn.innerHTML = `
-                                        <button onclick="window.open('${shareUrl}', '_blank')" class="primary-btn" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
-                                            <i class="fas fa-external-link-alt"></i> Having issues? Open in new tab
-                                        </button>`;
-                                    viewerBody.style.position = 'relative';
-                                    viewerBody.appendChild(fallbackBtn);
-                                }, 3000);
-                            })
-                            .catch(err => {
-                                console.error('Failed to generate share link for PDF:', err);
-                                showPDFFallback(objectUrl, file.name, null);
-                            });
+                        const iframe = document.createElement('iframe');
+                        iframe.src = objectUrl;
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                        iframe.style.border = 'none';
+                        iframe.setAttribute('type', 'application/pdf');
+                        
+                        viewerBody.innerHTML = '';
+                        viewerBody.appendChild(iframe);
+                        
+                        // Add download button for mobiles that don't support inline PDFs
+                        setTimeout(() => {
+                            const fallbackBtn = document.createElement('div');
+                            fallbackBtn.style.position = 'absolute';
+                            fallbackBtn.style.bottom = '10px';
+                            fallbackBtn.style.left = '50%';
+                            fallbackBtn.style.transform = 'translateX(-50%)';
+                            fallbackBtn.style.zIndex = '10';
+                            fallbackBtn.innerHTML = `
+                                <div style="display: flex; gap: 0.5rem; background: rgba(0,0,0,0.8); padding: 0.5rem; border-radius: 8px;">
+                                    <button onclick="window.open('${objectUrl}', '_blank')" class="primary-btn" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                        <i class="fas fa-external-link-alt"></i> Open
+                                    </button>
+                                    <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="font-size: 0.875rem; padding: 0.5rem 1rem; text-decoration: none; display: inline-flex; align-items: center;">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>`;
+                            viewerBody.style.position = 'relative';
+                            viewerBody.appendChild(fallbackBtn);
+                        }, 1500);
                     }
                 } else {
                     // Desktop: use native PDF viewer
@@ -1783,13 +1774,13 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
             } else if (isDoc) {
                 // Check if running on localhost
                 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                    // Google Docs Viewer cannot access localhost URLs
+                    // Microsoft Office Viewer cannot access localhost URLs
                     viewerBody.innerHTML = `
                         <div class="empty-state">
                             <i class="fas fa-info-circle" style="color: #3b82f6; font-size: 2.5rem;"></i>
                             <h3 style="margin-top: 1rem; color: #1f2937; font-size: 1.1rem;">Document Preview (Localhost)</h3>
-                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.9rem;">Google Docs Viewer requires a public URL.</p>
-                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.8rem;">This will work automatically when deployed to Render.</p>
+                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.9rem;">Microsoft Office Viewer requires a public URL.</p>
+                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.8rem;">This will work automatically when deployed to Railway.</p>
                             <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
                                 <a href="${objectUrl}" download="${file.name}" class="primary-btn" style="padding: 0.6rem 1rem; font-size: 0.9rem;">
                                     <i class="fas fa-download" style="font-size: 1rem; margin-bottom: 0px;"></i> Download
@@ -1801,7 +1792,7 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                         </div>`;
                 } else {
                     // For Office documents on public server, use Microsoft Office Online Viewer
-                    // Google Docs Viewer has authentication issues with Office documents
+                    // It's more reliable than Google Docs Viewer for Office documents
                     viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading document viewer...</p></div>';
                     generateTempShareLink(file, folderToUse)
                         .then(shareUrl => {
@@ -1863,8 +1854,9 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                                     fallbackDiv.style.right = '10px';
                                     fallbackDiv.innerHTML = `
                                         <a href="${shareUrl}" target="_blank" class="primary-btn" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
-                                            <i class="fas fa-external-link-alt"></i> Having trouble? Open in new tab
+                                            <i class="fas fa-external-link-alt"></i> 
                                         </a>`;
+                                    // Having trouble? Open in new tab
                                     viewerBody.style.position = 'relative';
                                     viewerBody.appendChild(fallbackDiv);
                                 }
