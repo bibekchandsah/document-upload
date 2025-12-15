@@ -1603,15 +1603,24 @@ app.get('/api/share/:username/:token/download', async (req, res) => {
     const { username, token } = req.params;
     const isDownload = req.query.download === 'true';
 
+    console.log(`Download request from: ${req.get('user-agent')}, IP: ${req.ip}, URL: ${req.url}`);
+
     try {
-        if (!shareLinks.has(username)) return res.status(404).send('Share link not found');
+        if (!shareLinks.has(username)) {
+            console.log(`Share link not found: username ${username} not in map`);
+            return res.status(404).send('Share link not found');
+        }
         const userLinks = shareLinks.get(username);
         const linkData = userLinks.get(token);
 
-        if (!linkData) return res.status(404).send('Share link not found');
+        if (!linkData) {
+            console.log(`Share link not found: token ${token} not found for user ${username}`);
+            return res.status(404).send('Share link not found');
+        }
 
         // Check expiration
         if (new Date() > new Date(linkData.expiresAt)) {
+            console.log(`Share link expired: ${token}, expired at ${linkData.expiresAt}`);
             userLinks.delete(token);
             if (userLinks.size === 0) shareLinks.delete(username);
             return res.status(410).send('Share link has expired');
@@ -1619,6 +1628,8 @@ app.get('/api/share/:username/:token/download', async (req, res) => {
 
         const { owner, repo, branch, filePath, token: githubToken } = linkData;
         const fullPath = filePath.startsWith('uploads/') ? filePath : `uploads/${filePath}`;
+
+        console.log(`Fetching file from GitHub: ${owner}/${repo}/${fullPath}`);
 
         const octokit = getOctokit(githubToken);
 
@@ -1647,6 +1658,8 @@ app.get('/api/share/:username/:token/download', async (req, res) => {
 
         const mimeType = mime.lookup(filePath) || 'application/octet-stream';
         
+        console.log(`Sending file: ${filePath}, size: ${buffer.length} bytes, type: ${mimeType}`);
+        
         // Set headers for Google Docs Viewer compatibility
         res.setHeader('Content-Type', mimeType);
         res.setHeader('Content-Length', buffer.length);
@@ -1663,9 +1676,12 @@ app.get('/api/share/:username/:token/download', async (req, res) => {
         }
 
         res.send(buffer);
+        console.log(`Successfully sent file to ${req.get('user-agent')?.substring(0, 50)}`);
     } catch (error) {
-        console.error('Error proxying shared file:', error);
+        console.error('Error proxying shared file:', error.message);
+        console.error('Error details:', error);
         res.status(500).send('Error retrieving file');
+
     }
 });
 

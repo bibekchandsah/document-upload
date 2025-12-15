@@ -1585,7 +1585,15 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                         generateTempShareLink(file, folderToUse)
                             .then(shareUrl => {
                                 console.log('Attempting to load PDF in Google Docs Viewer');
+                                console.log('PDF Share URL:', shareUrl);
+                                
+                                // Test if share URL is accessible
+                                fetch(shareUrl, { method: 'HEAD' })
+                                    .then(resp => console.log('PDF Share URL HEAD test:', resp.status, resp.headers.get('content-type')))
+                                    .catch(err => console.error('PDF Share URL HEAD test failed:', err));
+                                
                                 const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(shareUrl)}&embedded=true`;
+                                console.log('PDF Google Viewer URL:', googleViewerUrl);
                                 
                                 const iframe = document.createElement('iframe');
                                 iframe.src = googleViewerUrl;
@@ -1797,7 +1805,14 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                     generateTempShareLink(file, folderToUse)
                         .then(shareUrl => {
                             console.log('Generated share URL for document:', shareUrl);
-                            const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(shareUrl)}&embedded=true`;
+                            
+                            // Test if share URL is accessible
+                            fetch(shareUrl, { method: 'HEAD' })
+                                .then(resp => console.log('Share URL HEAD test:', resp.status, resp.headers.get('content-type')))
+                                .catch(err => console.error('Share URL HEAD test failed:', err));
+                            
+                            // Try viewer URL format instead of gview
+                            const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(shareUrl)}&embedded=true`;
                             console.log('Google Viewer URL for document:', googleViewerUrl);
                             console.log('File type:', file.type);
                             console.log('File name:', file.name);
