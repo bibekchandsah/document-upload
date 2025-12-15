@@ -1543,23 +1543,59 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                             iframe.style.width = '100%';
                             iframe.style.height = '100%';
                             iframe.style.border = 'none';
+                            
+                            // Handle iframe load error with timeout
+                            let loaded = false;
+                            const loadTimeout = setTimeout(() => {
+                                if (!loaded) {
+                                    console.error('Google Docs Viewer timed out');
+                                    showPDFFallback(objectUrl, file.name);
+                                }
+                            }, 10000); // 10 second timeout
+                            
+                            iframe.onload = () => {
+                                loaded = true;
+                                clearTimeout(loadTimeout);
+                            };
+                            
                             viewerBody.innerHTML = '';
                             viewerBody.appendChild(iframe);
                         })
                         .catch(err => {
-                            console.error('Failed to load PDF with Google Viewer:', err);
-                            // Fallback to native PDF viewer
-                            const iframe = document.createElement('iframe');
-                            iframe.src = objectUrl;
-                            viewerBody.innerHTML = '';
-                            viewerBody.appendChild(iframe);
+                            console.error('Failed to generate share link for Google Viewer:', err);
+                            showPDFFallback(objectUrl, file.name);
                         });
                 } else {
                     // Desktop: use native PDF viewer
                     const iframe = document.createElement('iframe');
                     iframe.src = objectUrl;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = 'none';
                     viewerBody.innerHTML = '';
                     viewerBody.appendChild(iframe);
+                }
+                
+                // Helper function for PDF fallback
+                function showPDFFallback(url, filename) {
+                    viewerBody.innerHTML = `
+                        <div class="empty-state" style="padding: 2rem; text-align: center;">
+                            <i class="fas fa-file-pdf" style="font-size: 4rem; color: #ef4444; margin-bottom: 1rem;"></i>
+                            <h3 style="margin-bottom: 1rem; color: var(--text-color);">PDF Preview Unavailable</h3>
+                            <p style="margin-bottom: 1.5rem; color: var(--secondary-text);">
+                                Unable to load PDF viewer. Please download or open in a new tab.
+                            </p>
+                            <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+                                <a href="${url}" download="${filename}" 
+                                   class="primary-btn" style="display: inline-block; text-decoration: none; padding: 0.75rem 1.5rem;">
+                                    <i class="fas fa-download"></i> Download PDF
+                                </a>
+                                <button onclick="window.open('${url}', '_blank')" 
+                                        class="primary-btn" style="padding: 0.75rem 1.5rem;">
+                                    <i class="fas fa-external-link-alt"></i> Open in New Tab
+                                </button>
+                            </div>
+                        </div>`;
                 }
             } else if (isVideo) {
                 const video = document.createElement('video');

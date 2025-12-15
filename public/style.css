@@ -30,6 +30,10 @@
     --secondary-text: #9ca3af;
 }
 
+p{
+    text-align: center;
+}
+
 /* Rate Limit Modal Styles */
 .MobileDeviceModalBody{
     display: block !important;
