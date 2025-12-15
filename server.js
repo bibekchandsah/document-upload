@@ -1638,8 +1638,15 @@ app.get('/api/share/:username/:token/download', async (req, res) => {
         }
 
         const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+        
+        // Set headers for Google Docs Viewer compatibility
         res.setHeader('Content-Type', mimeType);
         res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes cache
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
 
         if (isDownload) {
             res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);

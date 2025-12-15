@@ -1603,7 +1603,7 @@ span.breadcrumb-item:hover {
     align-items: center;
     flex-direction: column;
     position: relative;
-    touch-action: none; /* Prevent default touch behaviors for custom zoom */
+    touch-action: auto; /* Allow touch interactions */
 }
 
 [data-theme="dark"] .modal-body {
