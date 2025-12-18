@@ -1935,7 +1935,7 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                             setTimeout(() => {
                                 const fallbackDiv = document.createElement('div');
                                 fallbackDiv.style.position = 'absolute';
-                                fallbackDiv.style.bottom = '10px';
+                                fallbackDiv.style.bottom = '30px';
                                 fallbackDiv.style.right = '10px';
                                 fallbackDiv.innerHTML = `
                                     <a href="${shareUrl}" target="_blank" class="primary-btn" style="font-size: 0.875rem; padding: 0.5rem 1rem;">

@@ -1520,7 +1520,7 @@ app.get('/api/share/:username/:token', async (req, res) => {
                         setTimeout(() => {
                             const fallbackDiv = document.createElement('div');
                             fallbackDiv.style.position = 'absolute';
-                            fallbackDiv.style.bottom = '10px';
+                            fallbackDiv.style.bottom = '30px';
                             fallbackDiv.style.right = '10px';
                             fallbackDiv.innerHTML = \`
                                 <a href="\${downloadUrl}?download=true" class="btn" style="font-size: 0.875rem; padding: 0.5rem 1rem; background: #10b981;">
@@ -1551,7 +1551,7 @@ app.get('/api/share/:username/:token', async (req, res) => {
                             setTimeout(() => {
                                 const fallbackDiv = document.createElement('div');
                                 fallbackDiv.style.position = 'absolute';
-                                fallbackDiv.style.bottom = '10px';
+                                fallbackDiv.style.bottom = '30px';
                                 fallbackDiv.style.right = '10px';
                                 fallbackDiv.innerHTML = \`
                                     <a href="\${downloadUrl}?download=true" class="btn" style="font-size: 0.875rem; padding: 0.5rem 1rem; background: #10b981;">
@@ -1581,7 +1581,7 @@ app.get('/api/share/:username/:token', async (req, res) => {
     </script>
 
     <!-- Developer Badge -->
-    <a href="https://www.bibekchandsah.com.np/" target="_blank" class="developer-badge" title="Developer: Bibek Chand sah" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px; background: white; padding: 5px 45px 5px 5px; border-radius: 50px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-decoration: none; transition: all 0.3s ease; overflow: hidden; max-width: 50px; animation: developerBadgeIntro 3s ease-in-out 0.5s;">
+    <a href="https://www.bibekchandsah.com.np/" target="_blank" class="developer-badge" title="Developer: Bibek Chand sah" style="position: fixed; bottom: 20px; right: 20px; z-index: 999; display: flex; align-items: center; gap: 10px; background: white; padding: 5px 45px 5px 5px; border-radius: 50px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-decoration: none; transition: all 0.3s ease; overflow: hidden; max-width: 50px; animation: developerBadgeIntro 3s ease-in-out 0.5s;">
         <img src="https://bibekchandsah.github.io/kiitcse/assets/image/developer.jpg" alt="Developer" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
         <span class="developer-text" style="white-space: nowrap; font-size: 0.875rem; font-weight: 500; color: #1f2937; opacity: 0; transition: opacity 0.3s ease; animation: developerTextIntro 3s ease-in-out 0.5s;">Developed by Bibek</span>
     </a>
