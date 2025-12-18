@@ -10,6 +10,7 @@ class PDFViewer {
         this.pageCount = 0;
         this.scale = 1.0;
         this.renderedPages = new Set();
+        this.renderTasks = new Map(); // Track ongoing render tasks
         this.isRendering = false;
     }
 
@@ -69,8 +70,8 @@ class PDFViewer {
         const zoomInBtn = container.querySelector('#pdfZoomInBtn');
         const zoomResetBtn = container.querySelector('#pdfZoomResetBtn');
 
-        zoomOutBtn.addEventListener('click', () => this.zoomAll(-0.2));
-        zoomInBtn.addEventListener('click', () => this.zoomAll(0.2));
+        zoomOutBtn.addEventListener('click', () => this.zoomAll(-0.1)); // Decrease zoom by 10%
+        zoomInBtn.addEventListener('click', () => this.zoomAll(0.1)); // Increase zoom by 10%
         zoomResetBtn.addEventListener('click', () => this.resetZoom());
     }
 
@@ -124,7 +125,14 @@ class PDFViewer {
      * Render single page
      */
     async renderPage(pageNum) {
-        if (this.renderedPages.has(pageNum) || !this.pdfDoc) return;
+        if (!this.pdfDoc) return;
+
+        // Cancel any existing render task for this page
+        if (this.renderTasks.has(pageNum)) {
+            const existingTask = this.renderTasks.get(pageNum);
+            existingTask.cancel();
+            this.renderTasks.delete(pageNum);
+        }
 
         this.renderedPages.add(pageNum);
 
@@ -154,14 +162,26 @@ class PDFViewer {
             canvas.width = Math.floor(viewport.width * dpr);
             canvas.height = Math.floor(viewport.height * dpr);
 
-            await page.render({
+            const renderTask = page.render({
                 canvasContext: canvas.getContext('2d'),
                 viewport: viewport,
                 transform: [dpr, 0, 0, dpr, 0, 0]
-            }).promise;
+            });
+
+            // Store the render task
+            this.renderTasks.set(pageNum, renderTask);
+
+            await renderTask.promise;
+
+            // Remove completed task
+            this.renderTasks.delete(pageNum);
 
         } catch (error) {
-            console.error('Error rendering page', pageNum, ':', error);
+            // Clean up on error
+            this.renderTasks.delete(pageNum);
+            if (error.name !== 'RenderingCancelledException') {
+                console.error('Error rendering page', pageNum, ':', error);
+            }
         }
     }
 
@@ -170,7 +190,7 @@ class PDFViewer {
      */
     async zoomAll(delta) {
         const newScale = this.scale + delta;
-        if (newScale >= 0.5 && newScale <= 2) {
+        if (newScale >= 0.5 && newScale <= 5) {
             this.scale = newScale;
             this.updateZoomLevel();
             

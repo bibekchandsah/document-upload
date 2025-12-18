@@ -62,6 +62,7 @@ log (username, token, shared link) in csv file
 26) overwrite, skip, rename file with confirmation (duplicate file names detected while uploading)
 Repository Size: 878.40 MB
 27) mobile device pdf support improvements
+28) pdf library for all mobile devices and removed zoom control while printing
 
 1. File Management Operations
     - Rename files/folders

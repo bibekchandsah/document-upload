@@ -1541,8 +1541,13 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                 // Set src LAST to ensure handlers are attached
                 img.src = objectUrl;
             } else if (file.type === 'application/pdf') {
-                // Check if mobile device
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+                // Decide when to force PDF.js
+                const isTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+                const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const isDesktopOS = /Windows NT|Macintosh/.test(navigator.userAgent) && !/Mobile|Tablet/.test(navigator.userAgent);
+                const isSmallViewport = window.innerWidth <= 1024; // catches desktop-mode mobile
+                // Treat as mobile if true mobile UA, or touch + small viewport on non-desktop OS
+                const isMobile = isMobileUA || (isTouch && isSmallViewport && !isDesktopOS);
 
                 // Helper function for PDF fallback UI
                 const showPDFFallback = (url, filename, shareUrl = null) => {
