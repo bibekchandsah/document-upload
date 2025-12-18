@@ -1587,27 +1587,31 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
                 };
 
                 if (isMobile) {
-                    // For mobile: Try Google Docs Viewer first if on public server, otherwise show options
-                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                        // Localhost: show options directly
-                        showPDFFallback(objectUrl, file.name, null);
-                    } else {
-                        // Mobile on public server: Use direct blob URL in iframe
-                        // Most mobile browsers have native PDF support now
-                        console.log('Using native mobile PDF viewer with blob URL');
-                        viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading PDF...</p></div>';
-                        
+                    // For mobile: Use PDF.js viewer for reliable PDF viewing
+                    console.log('Using PDF.js viewer for mobile PDF viewing');
+                    viewerBody.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading PDF...</p></div>';
+                    
+                    try {
+                        // Initialize PDF viewer
+                        if (window.PDFViewer) {
+                            const pdfViewer = new window.PDFViewer();
+                            pdfViewer.display(blob, viewerBody);
+                        } else {
+                            throw new Error('PDF Viewer library not loaded');
+                        }
+                    } catch (error) {
+                        console.error('PDF.js viewer error:', error);
+                        // Fallback to browser native viewer
+                        console.log('Falling back to native PDF viewer');
                         const iframe = document.createElement('iframe');
                         iframe.src = objectUrl;
                         iframe.style.width = '100%';
                         iframe.style.height = '100%';
                         iframe.style.border = 'none';
-                        iframe.setAttribute('type', 'application/pdf');
-                        
                         viewerBody.innerHTML = '';
                         viewerBody.appendChild(iframe);
                         
-                        // Add download button for mobiles that don't support inline PDFs
+                        // Add fallback button after timeout
                         setTimeout(() => {
                             const fallbackBtn = document.createElement('div');
                             fallbackBtn.style.position = 'absolute';

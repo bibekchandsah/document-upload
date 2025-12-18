@@ -4,7 +4,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Document Viewer | Upload</title>
+    <meta name="description" content="GitHub-based document management system. Upload, organize, and share files with drag-and-drop support, folder organization, and expiring share links.">
+    <meta name="keywords" content="mero document, document viewer, file upload, GitHub storage, document management, file sharing, cloud storage">
+    <meta name="author" content="Bibek Chand sah">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://merodocument.bibekchandsah.com.np/">
+    <meta property="og:title" content="Document Viewer - GitHub-Based File Management">
+    <meta property="og:description" content="Manage and share your documents using GitHub. Upload files, organize folders, and generate secure share links.">
+    <meta property="og:image" content="favicon/android-icon-192x192.png">
+    <meta property="og:image:width" content="192">
+    <meta property="og:image:height" content="192">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://merodocument.bibekchandsah.com.np/">
+    <meta name="twitter:title" content="Document Viewer - GitHub-Based File Management">
+    <meta name="twitter:description" content="Manage and share your documents using GitHub. Upload files, organize folders, and generate secure share links.">
+    <meta name="twitter:image" content="favicon/android-icon-192x192.png">
+    
+    <title>Document Viewer | Upload, Manage & Share Files</title>
+    <link rel="canonical" href="https://merodocument.bibekchandsah.com.np/">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -12,6 +35,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <!-- Marked.js for Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- PDF.js for reliable PDF viewing on all devices -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <link rel="stylesheet" href="pdfViewer.css">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" sizes="57x57" href="favicon/apple-icon-57x57.png">
     <link rel="apple-touch-icon" sizes="60x60" href="favicon/apple-icon-60x60.png">
@@ -30,6 +56,40 @@
     <meta name="msapplication-TileImage" content="favicon/ms-icon-144x144.png">
     <meta name="theme-color" content="#ffffff">
     <link rel="manifest" href="favicon/manifest.json">
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Document Viewer",
+      "description": "GitHub-based document management system for uploading, organizing, and sharing files",
+      "url": "https://merodocument.bibekchandsah.com.np/",
+      "applicationCategory": "ProductivityApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "creator": {
+        "@type": "Person",
+        "name": "Bibek Chand sah",
+        "url": "https://www.bibekchandsah.com.np/"
+      },
+      "featureList": [
+        "GitHub-based file storage",
+        "Drag and drop uploads",
+        "Folder organization",
+        "File sharing with expiring links",
+        "Image preview and editing",
+        "Document viewer",
+        "Search functionality",
+        "Dark mode",
+        "Progressive Web App"
+      ],
+      "screenshot": "favicon/android-icon-192x192.png"
+    }
+    </script>
 </head>
 
 <body>
@@ -569,6 +629,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <!-- HEIC to JPEG converter -->
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <!-- PDF Viewer Module -->
+    <script src="pdfViewer.js"></script>
     <!-- Image Editor Module -->
     <script src="imageEditor.js"></script>
     <script src="app.js"></script>

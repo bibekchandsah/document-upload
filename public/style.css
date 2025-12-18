@@ -3250,3 +3250,31 @@ body.modal-open .file-grid {
 [data-theme="dark"] .markdown-viewer hr {
     border-top-color: #475569;
 }
+
+/* Token Guide Steps */
+.token-guide-steps {
+    list-style: decimal;
+    padding-left: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.token-guide-steps li {
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+.token-guide-steps li strong {
+    color: var(--primary-color);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.375rem;
+}
+
+.token-guide-steps li p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--secondary-text);
+    text-align: left;
+}

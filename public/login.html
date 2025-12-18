@@ -102,9 +102,7 @@
                 <div class="login-footer">
                     <p class="help-text">
                         <i class="fas fa-info-circle"></i>
-                        Need help? <a href="https://github.com/settings/tokens" target="_blank">Learn how to create a
-                            token</a>
-                        <!-- href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token" -->
+                        Need help? <a href="#" id="tokenHelpLink">Learn how to create a token</a>
                     </p>
                 </div>
             </div>
@@ -117,6 +115,75 @@
         <img src="https://bibekchandsah.github.io/kiitcse/assets/image/developer.jpg" alt="Developer">
         <span class="developer-text">Developed by Bibek</span>
     </a>
+
+    <!-- Token Creation Guide Modal -->
+    <div id="tokenGuideModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 600px; height: auto;">
+            <div class="modal-header">
+                <h3><i class="fab fa-github"></i> How to Create a GitHub Token</h3>
+                <button id="closeTokenGuideModal" class="icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body MobileDeviceModalBody" style="padding: 2rem; overflow-y: auto;">
+                <ol class="token-guide-steps">
+                    <li>
+                        <strong>Go to GitHub Settings</strong>
+                        <p>Click on your profile picture in the top right corner, then select <strong>Settings</strong></p>
+                    </li>
+                    <li>
+                        <strong>Open Developer Settings</strong>
+                        <p>Scroll down and click on <strong>Developer Settings</strong> in the left sidebar</p>
+                    </li>
+                    <li>
+                        <strong>Select Personal Access Tokens</strong>
+                        <p>Click on <strong>Personal access tokens</strong> in the left menu</p>
+                    </li>
+                    <li>
+                        <strong>Choose Tokens (classic)</strong>
+                        <p>Select <strong>Tokens (classic)</strong> from the submenu</p>
+                    </li>
+                    <li>
+                        <strong>Generate New Token</strong>
+                        <p>Click the <strong>Generate new token</strong> button, then select <strong>Generate new token (classic)</strong></p>
+                    </li>
+                    <li>
+                        <strong>Add Token Name</strong>
+                        <p>Write a descriptive name for your token in the <strong>Note</strong> field (e.g., "Document Viewer")</p>
+                    </li>
+                    <li>
+                        <strong>Set Expiration Date</strong>
+                        <p>Choose an <strong>Expiration Date</strong> according to your preference. For security, 30 days is recommended</p>
+                    </li>
+                    <li>
+                        <strong>Select Scopes</strong>
+                        <p>Under <strong>Select scopes</strong>, check the <strong>repo</strong> checkbox for read & write access to repositories</p>
+                    </li>
+                    <li>
+                        <strong>Generate Token</strong>
+                        <p>Scroll to the bottom and click <strong>Generate token</strong></p>
+                    </li>
+                    <li>
+                        <strong>Copy and Save</strong>
+                        <p><span style="color: #ef4444; font-weight: 600;">Important:</span> Copy the token immediately and save it securely. You won't be able to see it again!</p>
+                    </li>
+                </ol>
+                
+                <div style="background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; padding: 1rem; border-radius: 0.5rem; margin-top: 1.5rem;">
+                    <p style="margin: 0; font-size: 0.875rem;">
+                        <i class="fas fa-lightbulb"></i> <strong>Tip:</strong> The "repo" scope allows this app to read and write to your repositories. Never share your token with anyone!
+                    </p>
+                </div>
+
+                <div style="background: #dbeafe; border: 1px solid #93c5fd; color: #1e40af; padding: 1rem; border-radius: 0.5rem; margin-top: 1rem;">
+                    <p style="margin: 0; font-size: 0.875rem;">
+                        <i class="fas fa-link"></i> <strong>Direct Link:</strong> 
+                        <a href="https://github.com/settings/tokens" target="_blank" style="color: #1e40af; text-decoration: underline; font-weight: 600;">
+                            https://github.com/settings/tokens
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="login.js"></script>
 </body>

@@ -14,6 +14,9 @@ const newRepoName = document.getElementById('newRepoName');
 const repoPrivate = document.getElementById('repoPrivate');
 const branchName = document.getElementById('branchName');
 const loginBtn = document.getElementById('loginBtn');
+const tokenHelpLink = document.getElementById('tokenHelpLink');
+const tokenGuideModal = document.getElementById('tokenGuideModal');
+const closeTokenGuideModal = document.getElementById('closeTokenGuideModal');
 
 // State
 let ghToken = localStorage.getItem('gh_token');
@@ -197,4 +200,29 @@ loginBtn.onclick = async () => {
     }
 };
 
+// Token Guide Modal Handler
+tokenHelpLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    tokenGuideModal.classList.remove('hidden');
+});
+
+closeTokenGuideModal.addEventListener('click', () => {
+    tokenGuideModal.classList.add('hidden');
+});
+
+// Close modal on outside click
+tokenGuideModal.addEventListener('click', (e) => {
+    if (e.target === tokenGuideModal) {
+        tokenGuideModal.classList.add('hidden');
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !tokenGuideModal.classList.contains('hidden')) {
+        tokenGuideModal.classList.add('hidden');
+    }
+});
+
 init();
+
