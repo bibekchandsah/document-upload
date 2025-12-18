@@ -1014,6 +1014,19 @@ fileGrid.addEventListener('drop', async (e) => {
     handleUpload(files);
 });
 
+// Allow pasting files directly into the current folder
+document.addEventListener('paste', (e) => {
+    const active = document.activeElement;
+    const isTypingTarget = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+    if (isTypingTarget) return;
+
+    const clipboardFiles = e.clipboardData && e.clipboardData.files;
+    if (!clipboardFiles || clipboardFiles.length === 0) return;
+
+    e.preventDefault();
+    handleUpload(clipboardFiles);
+});
+
 // Show duplicate files modal and return user action
 function showDuplicateFilesModal(duplicateFiles, newFilesCount) {
     return new Promise((resolve) => {
