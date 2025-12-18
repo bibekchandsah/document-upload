@@ -1450,26 +1450,37 @@ app.get('/api/share/:username/:token', async (req, res) => {
                         viewerBody.innerHTML = '';
                         viewerBody.appendChild(img);
                     } else if (isPdf) {
-                        // Check if mobile device
-                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+                        // Use native PDF viewer for all devices (mobile and desktop)
+                        const iframe = document.createElement('iframe');
+                        iframe.src = objectUrl;
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                        iframe.style.border = 'none';
+                        iframe.setAttribute('type', 'application/pdf');
+                        viewerBody.innerHTML = '';
+                        viewerBody.appendChild(iframe);
                         
+                        // Add download button for devices that don't support inline PDFs
+                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
                         if (isMobile) {
-                            // Use Google Docs Viewer for mobile
-                            const shareUrl = window.location.origin + downloadUrl;
-                            const googleViewerUrl = \`https://docs.google.com/gview?url=\${encodeURIComponent(shareUrl)}&embedded=true\`;
-                            const iframe = document.createElement('iframe');
-                            iframe.src = googleViewerUrl;
-                            iframe.style.width = '100%';
-                            iframe.style.height = '100%';
-                            iframe.style.border = 'none';
-                            viewerBody.innerHTML = '';
-                            viewerBody.appendChild(iframe);
-                        } else {
-                            // Desktop: native PDF viewer
-                            const iframe = document.createElement('iframe');
-                            iframe.src = objectUrl;
-                            viewerBody.innerHTML = '';
-                            viewerBody.appendChild(iframe);
+                            setTimeout(() => {
+                                const fallbackDiv = document.createElement('div');
+                                fallbackDiv.style.position = 'absolute';
+                                fallbackDiv.style.bottom = '10px';
+                                fallbackDiv.style.left = '50%';
+                                fallbackDiv.style.transform = 'translateX(-50%)';
+                                fallbackDiv.innerHTML = \`
+                                    <div style="display: flex; gap: 0.5rem; background: rgba(0,0,0,0.8); padding: 0.5rem; border-radius: 8px;">
+                                        <a href="\${objectUrl}" target="_blank" class="btn" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                                            <i class="fas fa-external-link-alt"></i> Open
+                                        </a>
+                                        <a href="\${downloadUrl}?download=true" class="btn" style="font-size: 0.875rem; padding: 0.5rem 1rem; background: #10b981;">
+                                            <i class="fas fa-download"></i> Download
+                                        </a>
+                                    </div>\`;
+                                viewerBody.style.position = 'relative';
+                                viewerBody.appendChild(fallbackDiv);
+                            }, 1500);
                         }
                     } else if (isVideo) {
                         const video = document.createElement('video');
@@ -1493,14 +1504,15 @@ app.get('/api/share/:username/:token', async (req, res) => {
                             viewerBody.appendChild(pre);
                         });
                     } else if (isDoc) {
-                        // Use Google Docs Viewer for Office documents
+                        // Use Microsoft Office Online Viewer for Office documents
                         const shareUrl = window.location.origin + downloadUrl;
-                        const googleViewerUrl = \`https://docs.google.com/gview?url=\${encodeURIComponent(shareUrl)}&embedded=true\`;
+                        const officeViewerUrl = \`https://view.officeapps.live.com/op/embed.aspx?src=\${encodeURIComponent(shareUrl)}\`;
                         const iframe = document.createElement('iframe');
-                        iframe.src = googleViewerUrl;
+                        iframe.src = officeViewerUrl;
                         iframe.style.width = '100%';
                         iframe.style.height = '100%';
                         iframe.style.border = 'none';
+                        iframe.setAttribute('frameborder', '0');
                         viewerBody.innerHTML = '';
                         viewerBody.appendChild(iframe);
                         
@@ -1518,14 +1530,15 @@ app.get('/api/share/:username/:token', async (req, res) => {
                             viewerBody.appendChild(fallbackDiv);
                         }, 3000);
                     } else {
-                        // Try Google Docs Viewer for other file types
+                        // Try Microsoft Office Online Viewer for other file types
                         const shareUrl = window.location.origin + downloadUrl;
-                        const googleViewerUrl = \`https://docs.google.com/gview?url=\${encodeURIComponent(shareUrl)}&embedded=true\`;
+                        const officeViewerUrl = \`https://view.officeapps.live.com/op/embed.aspx?src=\${encodeURIComponent(shareUrl)}\`;
                         const iframe = document.createElement('iframe');
-                        iframe.src = googleViewerUrl;
+                        iframe.src = officeViewerUrl;
                         iframe.style.width = '100%';
                         iframe.style.height = '100%';
                         iframe.style.border = 'none';
+                        iframe.setAttribute('frameborder', '0');
                         
                         // Add loading indicator and fallback
                         viewerBody.innerHTML = '<div style="text-align:center"><i class="fas fa-spinner fa-spin" style="font-size:2rem"></i><p>Loading preview...</p></div>';
