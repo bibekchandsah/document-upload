@@ -67,9 +67,9 @@ Repository Size: 878.40 MB
 30) previous & next file (not directory) navigation with keyboard left & right key support 
 31) breadcumb dropdown > for sibling directory
 32) File/folder properties panel - Show detailed metadata, creation date, file hash
-Multi-select & deselect with Shift+Click - Select range of files between clicks
+33) Multi-select & deselect with Shift+Click - Select range of files between clicks
+34) Keyboard shortcuts panel (?) - Show all available shortcuts
 Sorting options - Sort files by name, date modified, size, or type with ascending/descending order
-Keyboard shortcuts panel (?) - Show all available shortcuts
 Auto-refresh - Detect external changes and update view
 File encryption - Password-protect sensitive files
 

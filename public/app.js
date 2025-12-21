@@ -496,6 +496,16 @@ async function loadApp() {
         });
     }
 
+    // Keyboard shortcuts button
+    const shortcutsBtn = document.getElementById('shortcutsBtn');
+    if (shortcutsBtn) {
+        shortcutsBtn.addEventListener('click', () => {
+            if (shortcutsModal) {
+                shortcutsModal.classList.remove('hidden');
+            }
+        });
+    }
+
     // Check URL for folder and file parameters
     const urlParams = new URLSearchParams(window.location.search);
     const folderParam = urlParams.get('folder') || '';
@@ -2210,6 +2220,12 @@ propertiesModal.onclick = (e) => {
     if (e.target === propertiesModal) propertiesModal.classList.add('hidden');
 };
 
+// Keyboard Shortcuts Modal handlers
+closeShortcutsModal.onclick = () => shortcutsModal.classList.add('hidden');
+shortcutsModal.onclick = (e) => {
+    if (e.target === shortcutsModal) shortcutsModal.classList.add('hidden');
+};
+
 async function showPropertiesModal(encodedPath, encodedName, isDirectory) {
     const itemPath = decodeURIComponent(encodedPath);
     const itemName = decodeURIComponent(encodedName);
@@ -3803,6 +3819,16 @@ window.addEventListener('keydown', (e) => {
         return;
     }
     
+    // ?: Show keyboard shortcuts panel
+    if ((e.key === '?' || e.key === '/' && e.shiftKey) && !isTextInput) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (shortcutsModal) {
+            shortcutsModal.classList.remove('hidden');
+        }
+        return;
+    }
+    
     // ESC: Close modals or deselect files
     if (e.key === 'Escape') {
         // Check if viewer modal is open
@@ -3814,6 +3840,18 @@ window.addEventListener('keydown', (e) => {
         // Check if share modal is open
         if (shareModal && !shareModal.classList.contains('hidden')) {
             shareModal.classList.add('hidden');
+            return;
+        }
+        
+        // Check if shortcuts modal is open
+        if (shortcutsModal && !shortcutsModal.classList.contains('hidden')) {
+            shortcutsModal.classList.add('hidden');
+            return;
+        }
+        
+        // Check if properties modal is open
+        if (propertiesModal && !propertiesModal.classList.contains('hidden')) {
+            propertiesModal.classList.add('hidden');
             return;
         }
         
