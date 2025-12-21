@@ -86,6 +86,7 @@ let viewerCropper = null; // Cropper instance for image viewer
 let selectedFiles = new Set(); // Track selected files for bulk operations
 let selectionMode = false; // Track if we're in selection mode
 let showThumbnails = localStorage.getItem('showThumbnails') === 'true'; // Track thumbnail preference
+let lastClickedIndex = -1; // Track last clicked item for shift+click range selection
 
 // Dark mode state
 let darkMode = localStorage.getItem('darkMode') === 'true'; // Track dark mode preference
@@ -581,6 +582,7 @@ function renderSidebarFolders(folders) {
 // --- Main Folder Operations ---
 async function selectFolder(folderPath, updateUrl = true) {
     currentFolder = folderPath || '';
+    lastClickedIndex = -1; // Reset range selection when switching folders
 
     renderBreadcrumbs(currentFolder);
 
@@ -880,11 +882,12 @@ function renderFiles(items) {
         return;
     }
 
-    items.forEach(item => {
+    items.forEach((item, index) => {
         const card = document.createElement('div');
         card.className = 'file-card';
         card.dataset.itemName = item.name;
         card.dataset.isDirectory = item.isDirectory;
+        card.dataset.itemIndex = index;
 
         // Make card draggable
         card.draggable = true;
@@ -906,7 +909,14 @@ function renderFiles(items) {
         checkbox.onclick = (e) => {
             e.stopPropagation();
             console.log('Checkbox clicked for:', item.name);
-            toggleFileSelection(item.name);
+            
+            // Handle Shift+Click for range selection
+            if (e.shiftKey && lastClickedIndex !== -1 && lastClickedIndex !== index) {
+                selectRange(lastClickedIndex, index, item.name);
+            } else {
+                toggleFileSelection(item.name);
+                lastClickedIndex = index;
+            }
         };
         card.appendChild(checkbox);
 
@@ -2560,6 +2570,36 @@ function toggleFileSelection(itemName) {
     updateCheckboxes();
 }
 
+// Select range of files between two indices (for Shift+Click)
+function selectRange(startIndex, endIndex, clickedItemName) {
+    const start = Math.min(startIndex, endIndex);
+    const end = Math.max(startIndex, endIndex);
+    
+    const fileCards = document.querySelectorAll('.file-card');
+    
+    // Determine if we should select or deselect based on the clicked item's current state
+    const shouldSelect = !selectedFiles.has(clickedItemName);
+    
+    for (let i = start; i <= end; i++) {
+        if (i < fileCards.length) {
+            const card = fileCards[i];
+            const itemName = card.dataset.itemName;
+            
+            if (shouldSelect) {
+                selectedFiles.add(itemName);
+            } else {
+                selectedFiles.delete(itemName);
+            }
+        }
+    }
+    
+    lastClickedIndex = endIndex;
+    console.log(`Range ${shouldSelect ? 'selected' : 'deselected'}:`, start, 'to', end);
+    console.log('Selected files:', Array.from(selectedFiles));
+    updateBulkActionsBar();
+    updateCheckboxes();
+}
+
 // Update bulk actions bar visibility
 function updateBulkActionsBar() {
     const bulkActionsBar = document.getElementById('bulkActionsBar');
@@ -2605,6 +2645,7 @@ document.getElementById('selectAllBtn')?.addEventListener('click', () => {
 
 document.getElementById('deselectAllBtn')?.addEventListener('click', () => {
     selectedFiles.clear();
+    lastClickedIndex = -1; // Reset range selection
     updateBulkActionsBar();
     updateCheckboxes();
 });
