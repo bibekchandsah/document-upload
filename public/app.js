@@ -2349,7 +2349,7 @@ document.getElementById('bulkDownloadBtn')?.addEventListener('click', async () =
     try {
         const zip = new JSZip();
         let downloadCount = 0;
-        let processedCount = 0;
+        let downloadedBytes = 0;
 
         // Download files in parallel with concurrency limit
         const downloadPromises = items.map(async (itemName) => {
@@ -2359,9 +2359,10 @@ document.getElementById('bulkDownloadBtn')?.addEventListener('click', async () =
             if (item.isDirectory) {
                 // For directories, recursively fetch all files
                 const fullPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
-                await addDirectoryToZip(zip, fullPath, itemName, () => {
-                    processedCount++;
-                    showProcessing(`Downloading... (${processedCount}/${items.length + '+'} items)`);
+                await addDirectoryToZip(zip, fullPath, itemName, (bytes) => {
+                    downloadedBytes += bytes;
+                    downloadCount++;
+                    showProcessing(`Downloading... ${downloadCount}/${items.length} files (${formatSize(downloadedBytes)})`);
                 });
             } else {
                 // For files, fetch and add to zip
@@ -2375,26 +2376,30 @@ document.getElementById('bulkDownloadBtn')?.addEventListener('click', async () =
                         const blob = await response.blob();
                         zip.file(itemName, blob);
                         downloadCount++;
+                        downloadedBytes += blob.size;
+                        // showProcessing(`Downloading... ${downloadCount} files (${formatSize(downloadedBytes)})`);
+                        showProcessing(`Downloading... ${downloadCount}/${items.length} files (${formatSize(downloadedBytes)})`);
                     }
                 } catch (error) {
                     console.error(`Failed to download ${itemName}:`, error);
-                } finally {
-                    processedCount++;
-                    showProcessing(`Downloading... (${processedCount}/${items.length} items)`);
                 }
             }
         });
 
         await Promise.all(downloadPromises);
 
-        if (downloadCount === 0 && processedCount === 0) {
+        if (downloadCount === 0) {
             alert('No files could be downloaded');
             return;
         }
 
-        // Generate and download the zip file
-        showProcessing('Creating zip file...');
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        // Generate zip with minimal compression for speed
+        showProcessing(`Creating zip file (${downloadCount} files)...`);
+        const zipBlob = await zip.generateAsync({ 
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 } // Fast compression (1(fast)-6(default)-9(slowest))
+        });
         
         const downloadLink = document.createElement('a');
         downloadLink.href = URL.createObjectURL(zipBlob);
@@ -2438,7 +2443,7 @@ async function addDirectoryToZip(zip, folderPath, zipPath, progressCallback) {
                     if (fileResponse.ok) {
                         const blob = await fileResponse.blob();
                         folder.file(item.name, blob);
-                        if (progressCallback) progressCallback();
+                        if (progressCallback) progressCallback(blob.size);
                     }
                 } catch (error) {
                     console.error(`Failed to download ${item.name}:`, error);
