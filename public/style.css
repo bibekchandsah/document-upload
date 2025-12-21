@@ -345,7 +345,7 @@ p{
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) transparent;
     flex-shrink: 0;
-    z-index: 10;
+    z-index: 9;
 }
 
 .view-options-bar::-webkit-scrollbar {
@@ -1254,6 +1254,79 @@ span.breadcrumb-item:hover {
     color: var(--primary-hover);
 }
 
+.breadcrumb-separator {
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s;
+}
+
+.breadcrumb-separator:hover {
+    background-color: var(--hover-bg);
+}
+
+.breadcrumb-separator-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.breadcrumb-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.25rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    min-width: 200px;
+    max-width: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+    padding: 0.25rem;
+}
+
+.breadcrumb-dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    color: var(--text-color);
+    transition: background-color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.breadcrumb-dropdown-item:hover {
+    background-color: var(--hover-bg);
+}
+
+.breadcrumb-dropdown-loading {
+    cursor: default !important;
+    color: var(--secondary-text);
+}
+
+.breadcrumb-dropdown-loading:hover {
+    background-color: transparent !important;
+}
+
+.breadcrumb-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.breadcrumb-dropdown::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.breadcrumb-dropdown::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-text);
+}
+
 /* File Grid */
 .file-grid {
     padding: 2rem;
@@ -1533,6 +1606,68 @@ span.breadcrumb-item:hover {
     flex-direction: column;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     overflow: hidden;
+    position: relative;
+}
+
+/* File navigation buttons overlay */
+.file-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.file-nav-prev {
+    left: 20px;
+}
+
+.file-nav-next {
+    right: 20px;
+}
+
+.modal-content:hover .file-nav-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.file-nav-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.file-nav-btn:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Mobile responsive for navigation buttons */
+@media (max-width: 768px) {
+    .file-nav-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+    }
+    
+    .file-nav-prev {
+        left: 10px;
+    }
+    
+    .file-nav-next {
+        right: 10px;
+    }
 }
 
 .modal-header {
@@ -2246,7 +2381,7 @@ span.breadcrumb-item:hover {
         gap: 0.35rem;
         width: 100%;
         overflow-x: auto;
-        flex-wrap: nowrap;
+        /* flex-wrap: nowrap; */
         scrollbar-width: none;
         /* Firefox */
         -ms-overflow-style: none;
@@ -2262,6 +2397,30 @@ span.breadcrumb-item:hover {
     span.breadcrumb-item {
         white-space: nowrap;
         font-size: 0.85rem;
+    }
+
+    /* Breadcrumb dropdown - mobile optimized */
+    .breadcrumb-dropdown {
+        position: fixed !important;
+        left: 1rem !important;
+        right: 1rem !important;
+        top: 0.25rem !important;
+        transform: none !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: 50vh;
+        z-index: 10000 !important;
+        margin-top: 0.5rem;
+    }
+
+    .breadcrumb-dropdown-item {
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .breadcrumb-separator {
+        padding: 0.5rem;
+        margin: -0.25rem;
     }
 
     /* Actions container - stack vertically */

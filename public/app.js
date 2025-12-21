@@ -621,10 +621,23 @@ function renderBreadcrumbs(path) {
     let currentPath = '';
 
     parts.forEach((part, index) => {
+        const separatorWrapper = document.createElement('span');
+        separatorWrapper.className = 'breadcrumb-separator-wrapper';
+        separatorWrapper.style.position = 'relative';
+        
         const separator = document.createElement('span');
         separator.className = 'breadcrumb-separator';
         separator.innerHTML = '<i class="fas fa-chevron-right"></i>';
-        breadcrumbsContainer.appendChild(separator);
+        
+        // Add click handler to show dropdown with sibling directories
+        const parentPath = parts.slice(0, index).join('/');
+        separator.onclick = async (e) => {
+            e.stopPropagation();
+            await showBreadcrumbDropdown(separatorWrapper, parentPath);
+        };
+        
+        separatorWrapper.appendChild(separator);
+        breadcrumbsContainer.appendChild(separatorWrapper);
 
         currentPath += (index > 0 ? '/' : '') + part;
         const partPath = currentPath; // Capture for closure
@@ -635,6 +648,87 @@ function renderBreadcrumbs(path) {
         link.onclick = () => selectFolder(partPath);
         breadcrumbsContainer.appendChild(link);
     });
+}
+
+// Show dropdown with sibling directories
+async function showBreadcrumbDropdown(separatorWrapper, parentPath) {
+    // Remove any existing dropdowns
+    document.querySelectorAll('.breadcrumb-dropdown').forEach(d => d.remove());
+    
+    // Create dropdown with loading state
+    const dropdown = document.createElement('div');
+    dropdown.className = 'breadcrumb-dropdown';
+    
+    // Show loading state
+    const loadingItem = document.createElement('div');
+    loadingItem.className = 'breadcrumb-dropdown-item breadcrumb-dropdown-loading';
+    loadingItem.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 0.5rem;"></i><span>Loading...</span>';
+    dropdown.appendChild(loadingItem);
+    
+    separatorWrapper.appendChild(dropdown);
+    
+    try {
+        const data = await fetchGitHubFiles(parentPath);
+        const directories = data.filter(item => item.isDirectory).sort((a, b) => a.name.localeCompare(b.name));
+        
+        // Clear loading state
+        dropdown.innerHTML = '';
+        
+        if (directories.length === 0) {
+            const emptyItem = document.createElement('div');
+            emptyItem.className = 'breadcrumb-dropdown-item';
+            emptyItem.style.color = 'var(--secondary-text)';
+            emptyItem.style.cursor = 'default';
+            emptyItem.innerHTML = '<i class="fas fa-folder-open" style="margin-right: 0.5rem;"></i><span>No folders</span>';
+            dropdown.appendChild(emptyItem);
+        } else {
+            directories.forEach(dir => {
+                const item = document.createElement('div');
+                item.className = 'breadcrumb-dropdown-item';
+                
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-folder';
+                icon.style.marginRight = '0.5rem';
+                icon.style.color = '#f59e0b';
+                
+                const name = document.createElement('span');
+                name.textContent = dir.name;
+                
+                item.appendChild(icon);
+                item.appendChild(name);
+                
+                item.onclick = () => {
+                    const newPath = parentPath ? `${parentPath}/${dir.name}` : dir.name;
+                    selectFolder(newPath);
+                    dropdown.remove();
+                };
+                
+                dropdown.appendChild(item);
+            });
+        }
+        
+        // Close dropdown when clicking outside
+        const closeDropdown = (e) => {
+            if (!dropdown.contains(e.target) && !separatorWrapper.contains(e.target)) {
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            }
+        };
+        
+        setTimeout(() => {
+            document.addEventListener('click', closeDropdown);
+        }, 10);
+        
+    } catch (err) {
+        console.error('Failed to fetch directories for breadcrumb dropdown:', err);
+        dropdown.innerHTML = '';
+        const errorItem = document.createElement('div');
+        errorItem.className = 'breadcrumb-dropdown-item';
+        errorItem.style.color = '#ef4444';
+        errorItem.style.cursor = 'default';
+        errorItem.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i><span>Failed to load</span>';
+        dropdown.appendChild(errorItem);
+    }
 }
 
 createFolderBtn.onclick = async () => {
@@ -1281,6 +1375,9 @@ function openViewer(file, updateUrl = true, folderOverride = null) {
     viewerFileName.textContent = file.name;
     viewerModal.classList.remove('hidden');
     currentViewedFile = { ...file, folder: folderOverride !== null ? folderOverride : currentFolder }; // Track for sharing
+    
+    // Update navigation buttons visibility
+    updateNavigationButtons(file);
     
     // Prevent background scrolling
     document.body.style.overflow = 'hidden';
@@ -2018,6 +2115,76 @@ closeViewerBtn.onclick = () => closeViewer(true);
 viewerModal.onclick = (e) => {
     if (e.target === viewerModal) closeViewer(true);
 };
+
+// Navigation helpers for viewer modal
+function updateNavigationButtons(currentFile) {
+    const prevBtn = document.getElementById('prevFileBtn');
+    const nextBtn = document.getElementById('nextFileBtn');
+    
+    if (!prevBtn || !nextBtn) return;
+    
+    // Only show navigation for files (not directories)
+    const files = currentFiles.filter(item => !item.isDirectory);
+    const currentIndex = files.findIndex(f => f.name === currentFile.name);
+    
+    if (currentIndex === -1 || files.length <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        return;
+    }
+    
+    prevBtn.style.display = currentIndex > 0 ? 'block' : 'none';
+    nextBtn.style.display = currentIndex < files.length - 1 ? 'block' : 'none';
+}
+
+function navigateFile(direction) {
+    if (!currentViewedFile) return;
+    
+    const files = currentFiles.filter(item => !item.isDirectory);
+    const currentIndex = files.findIndex(f => f.name === currentViewedFile.name);
+    
+    if (currentIndex === -1) return;
+    
+    let nextIndex;
+    if (direction === 'prev') {
+        nextIndex = currentIndex - 1;
+    } else {
+        nextIndex = currentIndex + 1;
+    }
+    
+    if (nextIndex >= 0 && nextIndex < files.length) {
+        const nextFile = files[nextIndex];
+        
+        // Clean up current viewer state before loading next file
+        viewerBody.innerHTML = '';
+        
+        // Reset zoom state if exists
+        if (window.viewerZoomState) {
+            if (window.viewerZoomState.cleanup) {
+                window.viewerZoomState.cleanup();
+            }
+            window.viewerZoomState = null;
+        }
+        
+        // Hide zoom controls
+        const zoomControls = document.getElementById('zoomControls');
+        if (zoomControls) {
+            zoomControls.style.display = 'none';
+        }
+        
+        // Open next file - use replaceState instead of pushState to avoid stacking
+        openViewer(nextFile, false, currentViewedFile.folder);
+        
+        // Manually replace the URL without adding to history stack
+        const folderToUse = currentViewedFile.folder;
+        const newUrl = `${window.location.pathname}?folder=${encodeURIComponent(folderToUse)}&file=${encodeURIComponent(nextFile.name)}`;
+        history.replaceState({ folder: folderToUse, file: nextFile.name }, '', newUrl);
+    }
+}
+
+// Navigation button event listeners
+document.getElementById('prevFileBtn')?.addEventListener('click', () => navigateFile('prev'));
+document.getElementById('nextFileBtn')?.addEventListener('click', () => navigateFile('next'));
 
 // Share Button (Modified for GitHub)
 // Share Button - Opens share modal
@@ -3472,6 +3639,20 @@ window.addEventListener('keydown', (e) => {
             const deselectAllBtn = document.getElementById('deselectAllBtn');
             if (deselectAllBtn) {
                 deselectAllBtn.click();
+            }
+            return;
+        }
+    }
+    
+    // Arrow keys: Navigate between files in viewer modal
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isTextInput) {
+        // Check if viewer modal is open
+        if (viewerModal && !viewerModal.classList.contains('hidden') && currentViewedFile) {
+            e.preventDefault();
+            if (e.key === 'ArrowLeft') {
+                navigateFile('prev');
+            } else if (e.key === 'ArrowRight') {
+                navigateFile('next');
             }
             return;
         }

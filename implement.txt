@@ -63,6 +63,9 @@ log (username, token, shared link) in csv file
 Repository Size: 878.40 MB
 27) mobile device pdf support improvements
 28) pdf library for all mobile devices and removed zoom control while printing
+29) bulk file download with downloaded/selected file (file size downloaded)
+30) previous & next file (not directory) navigation with keyboard left & right key support 
+31) breadcumb dropdown > for sibling directory
 
 1. File Management Operations
     - Rename files/folders
