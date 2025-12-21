@@ -87,6 +87,8 @@ let selectedFiles = new Set(); // Track selected files for bulk operations
 let selectionMode = false; // Track if we're in selection mode
 let showThumbnails = localStorage.getItem('showThumbnails') === 'true'; // Track thumbnail preference
 let lastClickedIndex = -1; // Track last clicked item for shift+click range selection
+let sortBy = localStorage.getItem('sortBy') || 'name'; // Track sort criteria
+let sortOrder = localStorage.getItem('sortOrder') || 'asc'; // Track sort order (asc/desc)
 
 // Dark mode state
 let darkMode = localStorage.getItem('darkMode') === 'true'; // Track dark mode preference
@@ -506,6 +508,49 @@ async function loadApp() {
         });
     }
 
+    // Sort controls
+    const sortBySelect = document.getElementById('sortBy');
+    const sortOrderBtn = document.getElementById('sortOrderBtn');
+    
+    if (sortBySelect) {
+        sortBySelect.value = sortBy;
+        sortBySelect.addEventListener('change', (e) => {
+            sortBy = e.target.value;
+            localStorage.setItem('sortBy', sortBy);
+            if (currentFiles && currentFiles.length > 0) {
+                renderFiles(currentFiles);
+            }
+        });
+    }
+    
+    if (sortOrderBtn) {
+        updateSortOrderIcon();
+        sortOrderBtn.addEventListener('click', () => {
+            sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+            localStorage.setItem('sortOrder', sortOrder);
+            updateSortOrderIcon();
+            if (currentFiles && currentFiles.length > 0) {
+                renderFiles(currentFiles);
+            }
+        });
+    }
+    
+    function updateSortOrderIcon() {
+        if (sortOrderBtn) {
+            const icon = sortOrderBtn.querySelector('i');
+            if (icon) {
+                const iconMap = {
+                    'name': sortOrder === 'asc' ? 'fa-sort-alpha-down' : 'fa-sort-alpha-up',
+                    'date': sortOrder === 'asc' ? 'fa-sort-numeric-down' : 'fa-sort-numeric-up',
+                    'size': sortOrder === 'asc' ? 'fa-sort-numeric-down' : 'fa-sort-numeric-up',
+                    'type': sortOrder === 'asc' ? 'fa-sort-alpha-down' : 'fa-sort-alpha-up'
+                };
+                icon.className = `fas ${iconMap[sortBy] || 'fa-sort-alpha-down'}`;
+                sortOrderBtn.title = sortOrder === 'asc' ? 'Ascending order' : 'Descending order';
+            }
+        }
+    }
+
     // Check URL for folder and file parameters
     const urlParams = new URLSearchParams(window.location.search);
     const folderParam = urlParams.get('folder') || '';
@@ -881,6 +926,44 @@ async function loadFiles(folder) {
     }
 }
 
+function sortFiles(items) {
+    // Separate folders and files
+    const folders = items.filter(item => item.isDirectory);
+    const files = items.filter(item => !item.isDirectory);
+    
+    // Sort function based on criteria
+    const sortFn = (a, b) => {
+        let comparison = 0;
+        
+        switch(sortBy) {
+            case 'name':
+                comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+                break;
+            case 'date':
+                // GitHub API doesn't provide modified date in directory listing, so we'll sort by name as fallback
+                comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+                break;
+            case 'size':
+                comparison = (a.size || 0) - (b.size || 0);
+                break;
+            case 'type':
+                const typeA = a.isDirectory ? 'folder' : (a.type || a.name.split('.').pop() || '');
+                const typeB = b.isDirectory ? 'folder' : (b.type || b.name.split('.').pop() || '');
+                comparison = typeA.localeCompare(typeB);
+                break;
+        }
+        
+        return sortOrder === 'asc' ? comparison : -comparison;
+    };
+    
+    // Sort folders and files separately
+    folders.sort(sortFn);
+    files.sort(sortFn);
+    
+    // Return folders first, then files
+    return [...folders, ...files];
+}
+
 function renderFiles(items) {
     fileGrid.innerHTML = '';
     if (items.length === 0) {
@@ -891,8 +974,11 @@ function renderFiles(items) {
             </div>`;
         return;
     }
+    
+    // Sort items before rendering
+    const sortedItems = sortFiles(items);
 
-    items.forEach((item, index) => {
+    sortedItems.forEach((item, index) => {
         const card = document.createElement('div');
         card.className = 'file-card';
         card.dataset.itemName = item.name;

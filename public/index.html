@@ -168,6 +168,21 @@
                     <i class="fas fa-sync-alt"></i>
                     <span>Refresh</span>
                 </button>
+                <div class="sort-controls view-option-toggle">
+                    <label for="sortBy" class="sort-label">
+                        <i class="fas fa-sort"></i>
+                        <span>Sort:</span>
+                    </label>
+                    <select id="sortBy" class="sort-select" title="Sort by">
+                        <option value="name">Name</option>
+                        <option value="date">Date Modified</option>
+                        <option value="size">Size</option>
+                        <option value="type">Type</option>
+                    </select>
+                    <button id="sortOrderBtn" class="sort-order-btn" title="Toggle sort order">
+                        <i class="fas fa-sort-alpha-down"></i>
+                    </button>
+                </div>
             </div>
 
             <div id="fileGrid" class="file-grid">
