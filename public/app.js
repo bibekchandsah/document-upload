@@ -2340,6 +2340,118 @@ document.getElementById('bulkCopyBtn')?.addEventListener('click', () => {
     showFolderSelectionModal('copy');
 });
 
+document.getElementById('bulkDownloadBtn')?.addEventListener('click', async () => {
+    if (selectedFiles.size === 0) return;
+
+    const items = Array.from(selectedFiles);
+    showProcessing(`Preparing ${items.length} file(s) for download...`);
+
+    try {
+        const zip = new JSZip();
+        let downloadCount = 0;
+        let processedCount = 0;
+
+        // Download files in parallel with concurrency limit
+        const downloadPromises = items.map(async (itemName) => {
+            const item = currentFiles.find(f => f.name === itemName);
+            if (!item) return;
+
+            if (item.isDirectory) {
+                // For directories, recursively fetch all files
+                const fullPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
+                await addDirectoryToZip(zip, fullPath, itemName, () => {
+                    processedCount++;
+                    showProcessing(`Downloading... (${processedCount}/${items.length + '+'} items)`);
+                });
+            } else {
+                // For files, fetch and add to zip
+                try {
+                    const itemPath = currentFolder ? `${currentFolder}/${itemName}` : itemName;
+                    const response = await fetch(`${API_BASE}/github/view?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(itemPath)}`, {
+                        headers: { 'Authorization': `Bearer ${ghToken}` }
+                    });
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        zip.file(itemName, blob);
+                        downloadCount++;
+                    }
+                } catch (error) {
+                    console.error(`Failed to download ${itemName}:`, error);
+                } finally {
+                    processedCount++;
+                    showProcessing(`Downloading... (${processedCount}/${items.length} items)`);
+                }
+            }
+        });
+
+        await Promise.all(downloadPromises);
+
+        if (downloadCount === 0 && processedCount === 0) {
+            alert('No files could be downloaded');
+            return;
+        }
+
+        // Generate and download the zip file
+        showProcessing('Creating zip file...');
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(zipBlob);
+        const timestamp = new Date().toISOString().slice(0, 10);
+        downloadLink.download = `files_${timestamp}.zip`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(downloadLink.href);
+
+    } catch (error) {
+        console.error('Bulk download error:', error);
+        alert('Failed to create download: ' + error.message);
+    } finally {
+        hideProcessing();
+    }
+});
+
+// Helper function to recursively add directory contents to zip
+async function addDirectoryToZip(zip, folderPath, zipPath, progressCallback) {
+    try {
+        const response = await fetch(`${API_BASE}/github/files?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(folderPath)}`, {
+            headers: { 'Authorization': `Bearer ${ghToken}` }
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const folder = zip.folder(zipPath);
+
+        // Download files in parallel for better performance
+        const filePromises = data.files.map(async (item) => {
+            if (item.isDirectory) {
+                await addDirectoryToZip(zip, `${folderPath}/${item.name}`, `${zipPath}/${item.name}`, progressCallback);
+            } else {
+                try {
+                    const fileResponse = await fetch(`${API_BASE}/github/view?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(`${folderPath}/${item.name}`)}`, {
+                        headers: { 'Authorization': `Bearer ${ghToken}` }
+                    });
+
+                    if (fileResponse.ok) {
+                        const blob = await fileResponse.blob();
+                        folder.file(item.name, blob);
+                        if (progressCallback) progressCallback();
+                    }
+                } catch (error) {
+                    console.error(`Failed to download ${item.name}:`, error);
+                }
+            }
+        });
+
+        await Promise.all(filePromises);
+    } catch (error) {
+        console.error(`Failed to add directory ${folderPath}:`, error);
+    }
+}
+
 // Delete item
 async function deleteItem(itemName, isDirectory) {
     const itemType = isDirectory ? 'folder' : 'file';
