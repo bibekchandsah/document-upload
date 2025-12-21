@@ -913,7 +913,11 @@ function renderFiles(items) {
         // Add action buttons
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'file-card-actions';
+        const itemPath = currentFolder ? `${currentFolder}/${item.name}` : item.name;
         actionsDiv.innerHTML = `
+            <button class="file-action-btn" onclick="event.stopPropagation(); showPropertiesModal('${encodeURIComponent(itemPath)}', '${encodeURIComponent(item.name)}', ${item.isDirectory})" title="Properties">
+                <i class="fas fa-info-circle"></i>
+            </button>
             <button class="file-action-btn" onclick="event.stopPropagation(); renameItem('${item.name}', ${item.isDirectory})" title="Rename">
                 <i class="fas fa-edit"></i>
             </button>
@@ -2185,6 +2189,151 @@ function navigateFile(direction) {
 // Navigation button event listeners
 document.getElementById('prevFileBtn')?.addEventListener('click', () => navigateFile('prev'));
 document.getElementById('nextFileBtn')?.addEventListener('click', () => navigateFile('next'));
+
+// Properties Modal
+const propertiesModal = document.getElementById('propertiesModal');
+const closePropertiesModal = document.getElementById('closePropertiesModal');
+const propertiesContent = document.getElementById('propertiesContent');
+
+closePropertiesModal.onclick = () => propertiesModal.classList.add('hidden');
+propertiesModal.onclick = (e) => {
+    if (e.target === propertiesModal) propertiesModal.classList.add('hidden');
+};
+
+async function showPropertiesModal(encodedPath, encodedName, isDirectory) {
+    const itemPath = decodeURIComponent(encodedPath);
+    const itemName = decodeURIComponent(encodedName);
+    
+    propertiesModal.classList.remove('hidden');
+    propertiesContent.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading properties...</p></div>';
+    
+    try {
+        // Construct the full path including 'uploads/' prefix
+        const fullPath = `uploads/${itemPath}`;
+        
+        // Fetch detailed file/folder metadata from GitHub API
+        const response = await fetch(`${API_BASE}/github/metadata?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(fullPath)}`, {
+            headers: { 'Authorization': `Bearer ${ghToken}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch metadata');
+        }
+        
+        const metadata = await response.json();
+        
+        // Build properties HTML
+        let propertiesHTML = '<div class="properties-grid">';
+        
+        // Basic info
+        propertiesHTML += `
+            <div class="property-row">
+                <div class="property-label"><i class="fas fa-tag"></i> Name</div>
+                <div class="property-value">${itemName}</div>
+            </div>
+            <div class="property-row">
+                <div class="property-label"><i class="fas fa-${isDirectory ? 'folder' : 'file'}"></i> Type</div>
+                <div class="property-value">${isDirectory ? 'Folder' : (metadata.type || 'File')}</div>
+            </div>
+        `;
+        
+        if (!isDirectory) {
+            propertiesHTML += `
+                <div class="property-row">
+                    <div class="property-label"><i class="fas fa-weight-hanging"></i> Size</div>
+                    <div class="property-value">${formatSize(metadata.size)} (${metadata.size.toLocaleString()} bytes)</div>
+                </div>
+            `;
+            
+            if (metadata.sha) {
+                propertiesHTML += `
+                    <div class="property-row">
+                        <div class="property-label"><i class="fas fa-fingerprint"></i> SHA Hash</div>
+                        <div class="property-value" style="font-family: monospace; word-break: break-all; font-size: 0.85rem;">${metadata.sha}</div>
+                    </div>
+                `;
+            }
+            
+            if (metadata.encoding) {
+                propertiesHTML += `
+                    <div class="property-row">
+                        <div class="property-label"><i class="fas fa-code"></i> Encoding</div>
+                        <div class="property-value">${metadata.encoding}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        propertiesHTML += `
+            <div class="property-row">
+                <div class="property-label"><i class="fas fa-map-marker-alt"></i> Path</div>
+                <div class="property-value" style="word-break: break-all; font-family: monospace; font-size: 0.85rem;">${itemPath}</div>
+            </div>
+        `;
+        
+        if (metadata.download_url && !isDirectory) {
+            propertiesHTML += `
+                <div class="property-row">
+                    <div class="property-label"><i class="fas fa-link"></i> Direct URL</div>
+                    <div class="property-value"><a href="${metadata.download_url}" target="_blank" style="color: var(--primary-color); text-decoration: none;">View on GitHub <i class="fas fa-external-link-alt"></i></a></div>
+                </div>
+            `;
+        }
+        
+        // Git metadata
+        if (metadata.git_url) {
+            propertiesHTML += `
+                <div class="property-section-title"><i class="fas fa-code-branch"></i> Git Information</div>
+                <div class="property-row">
+                    <div class="property-label"><i class="fas fa-code-branch"></i> Git URL</div>
+                    <div class="property-value" style="word-break: break-all; font-size: 0.85rem;">${metadata.git_url}</div>
+                </div>
+            `;
+        }
+        
+        if (metadata.html_url) {
+            propertiesHTML += `
+                <div class="property-row">
+                    <div class="property-label"><i class="fab fa-github"></i> GitHub Page</div>
+                    <div class="property-value"><a href="${metadata.html_url}" target="_blank" style="color: var(--primary-color); text-decoration: none;">View on GitHub <i class="fas fa-external-link-alt"></i></a></div>
+                </div>
+            `;
+        }
+        
+        // Commit info if available
+        if (metadata.lastCommit) {
+            propertiesHTML += `
+                <div class="property-section-title"><i class="fas fa-history"></i> Last Modified</div>
+                <div class="property-row">
+                    <div class="property-label"><i class="fas fa-clock"></i> Date</div>
+                    <div class="property-value">${new Date(metadata.lastCommit.date).toLocaleString()}</div>
+                </div>
+                <div class="property-row">
+                    <div class="property-label"><i class="fas fa-user"></i> Author</div>
+                    <div class="property-value">${metadata.lastCommit.author || 'Unknown'}</div>
+                </div>
+                <div class="property-row">
+                    <div class="property-label"><i class="fas fa-comment"></i> Commit Message</div>
+                    <div class="property-value" style="font-style: italic;">${metadata.lastCommit.message || 'No message'}</div>
+                </div>
+            `;
+        }
+        
+        propertiesHTML += '</div>';
+        
+        propertiesContent.innerHTML = propertiesHTML;
+        
+    } catch (error) {
+        console.error('Failed to load properties:', error);
+        propertiesContent.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                <p style="color: #ef4444;">Failed to load properties</p>
+                <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">${error.message}</p>
+            </div>
+        `;
+    }
+}
 
 // Share Button (Modified for GitHub)
 // Share Button - Opens share modal

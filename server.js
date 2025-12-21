@@ -1282,6 +1282,72 @@ app.get('/api/github/thumbnail', async (req, res) => {
     }
 });
 
+// Metadata endpoint - Get detailed file/folder metadata
+app.get('/api/github/metadata', async (req, res) => {
+    try {
+        const { owner, repo, branch, path } = req.query;
+        const token = req.headers['authorization']?.replace('Bearer ', '');
+
+        console.log('Metadata request:', { owner, repo, branch, path });
+
+        if (!token || !owner || !repo || !branch || !path) {
+            return res.status(400).json({ error: 'Missing required parameters' });
+        }
+
+        const octokit = new Octokit({ auth: token });
+
+        // Get file/folder metadata
+        const response = await octokit.rest.repos.getContent({
+            owner,
+            repo,
+            ref: branch,
+            path
+        });
+
+        const metadata = {
+            name: response.data.name,
+            path: response.data.path,
+            sha: response.data.sha,
+            size: response.data.size,
+            type: response.data.type,
+            encoding: response.data.encoding,
+            download_url: response.data.download_url,
+            git_url: response.data.git_url,
+            html_url: response.data.html_url,
+            url: response.data.url
+        };
+
+        // Get last commit info for this file
+        try {
+            const commits = await octokit.rest.repos.listCommits({
+                owner,
+                repo,
+                path,
+                per_page: 1
+            });
+
+            if (commits.data && commits.data.length > 0) {
+                const lastCommit = commits.data[0];
+                metadata.lastCommit = {
+                    sha: lastCommit.sha,
+                    date: lastCommit.commit.author.date,
+                    author: lastCommit.commit.author.name,
+                    email: lastCommit.commit.author.email,
+                    message: lastCommit.commit.message
+                };
+            }
+        } catch (commitError) {
+            console.error('Failed to fetch commit history:', commitError);
+            // Continue without commit info
+        }
+
+        res.json(metadata);
+    } catch (error) {
+        console.error('Metadata fetch error:', error);
+        res.status(500).json({ error: error.message || 'Failed to fetch metadata' });
+    }
+});
+
 // Share Links - Create
 app.post('/api/share/create', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
