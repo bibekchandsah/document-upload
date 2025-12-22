@@ -72,6 +72,7 @@ Repository Size: 878.40 MB
 35) Sorting options - Sort files by name, date modified, size, or type with ascending/descending order
 36) File encryption - Password-protect sensitive files (not for public repo)
         warning:- Make sure it's private repo bcz if it's public then lock folder is accessible by public users too
+37) Repo dropdown
 Auto-refresh - Detect external changes and update view
 
 1. File Management Operations

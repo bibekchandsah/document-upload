@@ -368,6 +368,11 @@ app.post('/api/folders/unlock', async (req, res) => {
         const { data: userData } = await octokit.rest.users.getAuthenticated();
         const username = userData.login;
 
+        // Load passwords from GitHub if not in memory
+        if (!lockedFolders.has(username)) {
+            await loadPasswordsFromGitHub(octokit, owner, repo);
+        }
+
         // Check if Locked Folder has a password
         const userLockedFolders = lockedFolders.get(username);
         if (!userLockedFolders) {
@@ -424,6 +429,11 @@ app.get('/api/folders/check-locked', async (req, res) => {
             return res.json({ locked: false });
         }
 
+        // Load passwords from GitHub if not in memory
+        if (!lockedFolders.has(username)) {
+            await loadPasswordsFromGitHub(octokit, owner, repo);
+        }
+
         const userLockedFolders = lockedFolders.get(username);
         if (!userLockedFolders) {
             return res.json({ locked: false });
@@ -455,6 +465,11 @@ app.delete('/api/folders/unlock', async (req, res) => {
         const octokit = getOctokit(token);
         const { data: userData } = await octokit.rest.users.getAuthenticated();
         const username = userData.login;
+
+        // Load passwords from GitHub if not in memory
+        if (!lockedFolders.has(username)) {
+            await loadPasswordsFromGitHub(octokit, owner, repo);
+        }
 
         const userLockedFolders = lockedFolders.get(username);
         if (!userLockedFolders) {
