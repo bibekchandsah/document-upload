@@ -155,6 +155,11 @@
                     <i class="fas fa-image"></i>
                     <span>Thumbnails</span>
                 </label>
+                <label class="view-option-toggle" title="Enable Locked Folder for secure file storage">
+                    <input type="checkbox" id="showLockedFolder">
+                    <i class="fas fa-lock"></i>
+                    <span>Locked Folder</span>
+                </label>
                 <label class="view-option-toggle" title="Toggle dark mode">
                     <input type="checkbox" id="darkModeToggle">
                     <i class="fas fa-moon"></i>
@@ -719,6 +724,83 @@
                         Perfect for personal document management, small team collaboration, and learning about API
                         integration.
                     </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Locked Folder Modal -->
+    <div id="lockedFolderModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 450px; height: auto;">
+            <div class="modal-header">
+                <h3><i class="fas fa-lock"></i> <span id="lockedFolderAction">Locked Folder</span></h3>
+                <button id="closeLockedFolderModal" class="icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 2rem;">
+                <!-- Set Password Form -->
+                <div id="lockFolderForm">
+                    <p style="margin-bottom: 1.5rem; color: var(--text-color); line-height: 1.6;">
+                        <i class="fas fa-folder-lock" style="color: #ef4444;"></i> 
+                        Protect your sensitive files by setting a password for the <strong>Locked Folder</strong>. 
+                        All files and subfolders inside will be protected.
+                    </p>
+                    
+                    <!-- Warning for public repos -->
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; font-size: 0.875rem; line-height: 1.6;">
+                        <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> 
+                        <strong>Important:</strong> Make sure this is a <strong>private repository</strong>. 
+                        If your repo is public, the Locked Folder and its contents will be accessible by anyone, 
+                        even though the password is encrypted.
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label for="lockFolderPassword" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                            <i class="fas fa-key"></i> Set Password (min 4 characters)
+                        </label>
+                        <input type="password" id="lockFolderPassword" placeholder="Enter password" 
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);" minlength="4" 
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('lockFolderPasswordConfirm').focus();}" />
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label for="lockFolderPasswordConfirm" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                            <i class="fas fa-check"></i> Confirm Password
+                        </label>
+                        <input type="password" id="lockFolderPasswordConfirm" placeholder="Re-enter password" 
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);" minlength="4" 
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('confirmLockBtn').click();}" />
+                    </div>
+                    <div style="background: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1.5rem; font-size: 0.875rem;">
+                        <i class="fas fa-info-circle"></i> <strong>Recovery Key:</strong> Your GitHub username can be used to recover access if you forget the password.
+                    </div>
+                    <button id="confirmLockBtn" class="primary-btn" style="width: 100%; background: #ef4444;">
+                        <i class="fas fa-shield-alt"></i> Set Password
+                    </button>
+                </div>
+
+                <!-- Unlock Folder Form -->
+                <div id="unlockFolderForm" style="display: none;">
+                    <p style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">
+                        <i class="fas fa-shield-alt" style="font-size: 2.5rem; color: #ef4444; display: block; margin-bottom: 0.5rem;"></i>
+                        <strong>Locked Folder</strong> is password protected.<br>
+                        <span style="font-size: 0.875rem; color: var(--secondary-text);">Enter your password to access sensitive files</span>
+                    </p>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label for="unlockFolderPassword" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                            <i class="fas fa-key"></i> Password
+                        </label>
+                        <input type="password" id="unlockFolderPassword" placeholder="Enter password" 
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);" 
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('confirmUnlockBtn').click();}" />
+                    </div>
+                    <div id="unlockError" style="display: none; background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem;">
+                        <i class="fas fa-exclamation-triangle"></i> <span>Incorrect password</span>
+                    </div>
+                    <button id="confirmUnlockBtn" class="primary-btn" style="width: 100%; margin-bottom: 0.75rem;">
+                        <i class="fas fa-unlock"></i> Unlock & Access
+                    </button>
+                    <button id="removeLockBtn" class="secondary-btn" style="width: 100%;">
+                        <i class="fas fa-trash"></i> Remove Password Protection
+                    </button>
                 </div>
             </div>
         </div>

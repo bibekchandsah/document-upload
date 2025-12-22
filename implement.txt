@@ -70,8 +70,9 @@ Repository Size: 878.40 MB
 33) Multi-select & deselect with Shift+Click - Select range of files between clicks
 34) Keyboard shortcuts panel (?) - Show all available shortcuts
 35) Sorting options - Sort files by name, date modified, size, or type with ascending/descending order
+36) File encryption - Password-protect sensitive files (not for public repo)
+        warning:- Make sure it's private repo bcz if it's public then lock folder is accessible by public users too
 Auto-refresh - Detect external changes and update view
-File encryption - Password-protect sensitive files
 
 1. File Management Operations
     - Rename files/folders

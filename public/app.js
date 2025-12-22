@@ -481,6 +481,19 @@ async function loadApp() {
         });
     }
 
+    // Initialize Locked Folder toggle
+    const lockedFolderToggle = document.getElementById('showLockedFolder');
+    if (lockedFolderToggle) {
+        const showLockedFolder = localStorage.getItem('showLockedFolder') === 'true';
+        lockedFolderToggle.checked = showLockedFolder;
+        lockedFolderToggle.addEventListener('change', async (e) => {
+            localStorage.setItem('showLockedFolder', e.target.checked);
+            // Reload both sidebar and current folder to show/hide Locked Folder
+            await loadSidebarFolders();
+            await loadFiles(currentFolder);
+        });
+    }
+
     // Initialize hard refresh button
     const hardRefreshBtn = document.getElementById('hardRefreshBtn');
     if (hardRefreshBtn) {
@@ -596,13 +609,13 @@ async function loadSidebarFolders() {
     try {
         const items = await fetchGitHubFiles('');
         const folders = items.filter(item => item.isDirectory).map(item => item.name);
-        renderSidebarFolders(folders);
+        await renderSidebarFolders(folders);
     } catch (err) {
         console.error('Failed to load sidebar folders', err);
     }
 }
 
-function renderSidebarFolders(folders) {
+async function renderSidebarFolders(folders) {
     folderList.innerHTML = '';
     const homeLi = document.createElement('li');
     homeLi.className = 'folder-item';
@@ -617,7 +630,11 @@ function renderSidebarFolders(folders) {
 
     folderList.appendChild(homeLi);
 
-    folders.forEach(folder => {
+    // Check if Locked Folder should be shown
+    const showLockedFolder = localStorage.getItem('showLockedFolder') === 'true';
+
+    // Render regular folders (excluding Locked Folder if it exists)
+    folders.filter(folder => folder !== 'Locked Folder').forEach(folder => {
         const li = document.createElement('li');
         li.className = 'folder-item';
         // Only mark active if it matches the *start* of the current path
@@ -632,12 +649,93 @@ function renderSidebarFolders(folders) {
 
         folderList.appendChild(li);
     });
+
+    // Add Locked Folder at the bottom with dynamic icon (only if enabled)
+    if (!showLockedFolder) {
+        return; // Exit if Locked Folder is disabled
+    }
+    
+    const lockedFolderLi = document.createElement('li');
+    lockedFolderLi.className = 'folder-item locked-folder-item';
+    if (currentFolder === 'Locked Folder' || currentFolder.startsWith('Locked Folder/')) {
+        lockedFolderLi.classList.add('active');
+    }
+    
+    // Determine icon based on state
+    const isLocked = await checkFolderLocked('Locked Folder');
+    const isUnlocked = unlockedFolders.has('Locked Folder');
+    
+    let icon, label, style;
+    if (!isLocked) {
+        // No password set - show key icon
+        icon = 'fa-key';
+        label = 'Locked Folder';
+        style = 'color: #6b7280;';
+    } else if (isUnlocked) {
+        // Password set and unlocked - show unlock icon
+        icon = 'fa-unlock';
+        label = 'Locked Folder';
+        style = 'color: #10b981;';
+    } else {
+        // Password set and locked - show lock icon
+        icon = 'fa-lock';
+        label = 'Locked Folder';
+        style = 'color: #ef4444;';
+    }
+    
+    lockedFolderLi.innerHTML = `
+        <i class="fas ${icon}" style="${style}"></i> 
+        <span>${label}</span>
+        <button class="key-action-btn" title="${!isLocked ? 'Set password' : (isUnlocked ? 'Unlocked' : 'Unlock folder')}">
+            <i class="fas ${!isLocked ? 'fa-key' : (isUnlocked ? 'fa-unlock' : 'fa-lock')}" style="${!isLocked ? 'color: #6b7280;' : (isUnlocked ? 'color: #10b981;' : 'color: #ef4444;')}"></i>
+        </button>
+    `;
+    
+    // Handle key button click
+    const keyBtn = lockedFolderLi.querySelector('.key-action-btn');
+    keyBtn.onclick = async (e) => {
+        e.stopPropagation();
+        showLockFolderDialog('Locked Folder');
+    };
+    
+    lockedFolderLi.onclick = async () => {
+        if (!isLocked) {
+            // No password set - show set password dialog
+            showLockFolderDialog('Locked Folder');
+        } else if (isUnlocked) {
+            // Already unlocked - navigate normally
+            selectFolder('Locked Folder');
+        } else {
+            // Locked - show unlock dialog
+            selectFolder('Locked Folder');
+        }
+    };
+
+    // Add drag and drop handlers
+    lockedFolderLi.ondragover = (e) => handleSidebarDragOver(e);
+    lockedFolderLi.ondragleave = (e) => handleSidebarDragLeave(e);
+    lockedFolderLi.ondrop = (e) => handleSidebarDrop(e, 'Locked Folder');
+
+    folderList.appendChild(lockedFolderLi);
 }
 
 // --- Main Folder Operations ---
 async function selectFolder(folderPath, updateUrl = true) {
     currentFolder = folderPath || '';
     lastClickedIndex = -1; // Reset range selection when switching folders
+
+    // Check if accessing "Locked Folder" or any subfolder within it
+    const isLockedFolderPath = currentFolder === 'Locked Folder' || currentFolder.startsWith('Locked Folder/');
+    
+    if (isLockedFolderPath) {
+        const isLocked = await checkFolderLocked('Locked Folder');
+        
+        if (isLocked && !unlockedFolders.has('Locked Folder')) {
+            // Show unlock dialog for Locked Folder
+            showLockFolderDialog('Locked Folder');
+            return;
+        }
+    }
 
     renderBreadcrumbs(currentFolder);
 
@@ -919,7 +1017,12 @@ async function loadFiles(folder) {
         const items = await fetchGitHubFiles(folder);
         currentFiles = items;
         window.currentFiles = items; // Update global reference
-        renderFiles(items);
+        await renderFiles(items);
+        
+        // Reload sidebar to update Locked Folder icon if at root
+        if (folder === '') {
+            await loadSidebarFolders();
+        }
     } catch (err) {
         console.error('Failed to load files', err);
         fileGrid.innerHTML = `<div class="empty-state"><p style="color:red">Failed to load content. Check your connection or repo settings.</p></div>`;
@@ -964,8 +1067,33 @@ function sortFiles(items) {
     return [...folders, ...files];
 }
 
-function renderFiles(items) {
+async function renderFiles(items) {
     fileGrid.innerHTML = '';
+    
+    // Check if Locked Folder should be shown
+    const showLockedFolder = localStorage.getItem('showLockedFolder') === 'true';
+    
+    // Filter out Locked Folder from items if disabled
+    if (!showLockedFolder && currentFolder === '') {
+        items = items.filter(item => item.name !== 'Locked Folder');
+    }
+    
+    // If at root level, automatically add Locked Folder if not present AND if enabled
+    if (currentFolder === '' && showLockedFolder) {
+        const hasLockedFolder = items.some(item => item.name === 'Locked Folder' && item.isDirectory);
+        if (!hasLockedFolder) {
+            // Add virtual Locked Folder entry
+            items.push({
+                name: 'Locked Folder',
+                isDirectory: true,
+                size: 0,
+                type: 'folder',
+                date: new Date(),
+                isVirtual: true // Mark as virtual to handle differently
+            });
+        }
+    }
+    
     if (items.length === 0) {
         fileGrid.innerHTML = `
             <div class="empty-state">
@@ -978,7 +1106,8 @@ function renderFiles(items) {
     // Sort items before rendering
     const sortedItems = sortFiles(items);
 
-    sortedItems.forEach((item, index) => {
+    for (let index = 0; index < sortedItems.length; index++) {
+        const item = sortedItems[index];
         const card = document.createElement('div');
         card.className = 'file-card';
         card.dataset.itemName = item.name;
@@ -1020,10 +1149,19 @@ function renderFiles(items) {
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'file-card-actions';
         const itemPath = currentFolder ? `${currentFolder}/${item.name}` : item.name;
+        
+        // Add lock button only for the "Locked Folder" itself when at root level
+        const isLockedFolderAtRoot = item.isDirectory && item.name === 'Locked Folder' && currentFolder === '';
+        const lockButton = isLockedFolderAtRoot ? 
+            `<button class="file-action-btn" onclick="event.stopPropagation(); showLockFolderDialog('Locked Folder')" title="Set/Change Password">
+                <i class="fas fa-key"></i>
+            </button>` : '';
+        
         actionsDiv.innerHTML = `
             <button class="file-action-btn" onclick="event.stopPropagation(); showPropertiesModal('${encodeURIComponent(itemPath)}', '${encodeURIComponent(item.name)}', ${item.isDirectory})" title="Properties">
                 <i class="fas fa-info-circle"></i>
             </button>
+            ${lockButton}
             <button class="file-action-btn" onclick="event.stopPropagation(); renameItem('${item.name}', ${item.isDirectory})" title="Rename">
                 <i class="fas fa-edit"></i>
             </button>
@@ -1044,9 +1182,32 @@ function renderFiles(items) {
         fileMeta.className = 'file-meta';
 
         if (item.isDirectory) {
-            fileIcon.className = 'file-icon fas fa-folder';
-            fileIcon.style.color = '#fbbf24';
-            fileMeta.textContent = 'Folder';
+            // Special handling for Locked Folder
+            if (item.name === 'Locked Folder' && currentFolder === '') {
+                const isLocked = await checkFolderLocked('Locked Folder');
+                const isUnlocked = unlockedFolders.has('Locked Folder');
+                
+                if (!isLocked) {
+                    // No password set - show key icon
+                    fileIcon.className = 'file-icon fas fa-key';
+                    fileIcon.style.color = '#6b7280';
+                    fileMeta.innerHTML = 'Click to set password';
+                } else if (isUnlocked) {
+                    // Password set and unlocked - show unlock icon
+                    fileIcon.className = 'file-icon fas fa-folder-open';
+                    fileIcon.style.color = '#10b981';
+                    fileMeta.innerHTML = 'Unlocked';
+                } else {
+                    // Password set and locked - show lock icon
+                    fileIcon.className = 'file-icon fas fa-lock';
+                    fileIcon.style.color = '#ef4444';
+                    fileMeta.innerHTML = 'Password protected';
+                }
+            } else {
+                fileIcon.className = 'file-icon fas fa-folder';
+                fileIcon.style.color = '#fbbf24';
+                fileMeta.textContent = 'Folder';
+            }
 
             card.appendChild(fileIcon);
             card.appendChild(fileName);
@@ -1054,8 +1215,19 @@ function renderFiles(items) {
 
             // Navigate into folder
             const newPath = currentFolder ? `${currentFolder}/${item.name}` : item.name;
-            card.onclick = (e) => {
+            card.onclick = async (e) => {
                 if (!e.target.closest('.file-card-checkbox') && !e.target.closest('.file-card-actions')) {
+                    // Special handling for Locked Folder at root
+                    if (item.name === 'Locked Folder' && currentFolder === '') {
+                        const isLocked = await checkFolderLocked('Locked Folder');
+                        const isUnlocked = unlockedFolders.has('Locked Folder');
+                        
+                        if (!isLocked) {
+                            // No password set - show set password dialog
+                            showLockFolderDialog('Locked Folder');
+                            return;
+                        }
+                    }
                     selectFolder(newPath);
                 }
             };
@@ -1119,7 +1291,7 @@ function renderFiles(items) {
         }
 
         fileGrid.appendChild(card);
-    });
+    }
 }
 
 // --- Search ---
@@ -4014,4 +4186,294 @@ window.addEventListener('keydown', (e) => {
     }
 }, true); // true = capture phase
 
+// ====== LOCKED FOLDER FUNCTIONALITY ======
 
+// Track unlocked folders in current session
+const unlockedFolders = new Set();
+
+// Get elements for locked folder modal
+const lockedFolderModal = document.getElementById('lockedFolderModal');
+const closeLockedFolderModal = document.getElementById('closeLockedFolderModal');
+const lockFolderForm = document.getElementById('lockFolderForm');
+const unlockFolderForm = document.getElementById('unlockFolderForm');
+const lockedFolderAction = document.getElementById('lockedFolderAction');
+const lockFolderPassword = document.getElementById('lockFolderPassword');
+const lockFolderPasswordConfirm = document.getElementById('lockFolderPasswordConfirm');
+const unlockFolderPassword = document.getElementById('unlockFolderPassword');
+const unlockError = document.getElementById('unlockError');
+const confirmLockBtn = document.getElementById('confirmLockBtn');
+const confirmUnlockBtn = document.getElementById('confirmUnlockBtn');
+const removeLockBtn = document.getElementById('removeLockBtn');
+
+let currentLockFolderPath = null; // Track folder being locked/unlocked
+
+// Close locked folder modal
+if (closeLockedFolderModal) {
+    closeLockedFolderModal.onclick = () => {
+        lockedFolderModal.classList.add('hidden');
+        resetLockedFolderModal();
+    };
+}
+
+// Close on outside click
+if (lockedFolderModal) {
+    lockedFolderModal.onclick = (e) => {
+        if (e.target === lockedFolderModal) {
+            lockedFolderModal.classList.add('hidden');
+            resetLockedFolderModal();
+        }
+    };
+}
+
+function resetLockedFolderModal() {
+    if (lockFolderPassword) lockFolderPassword.value = '';
+    if (lockFolderPasswordConfirm) lockFolderPasswordConfirm.value = '';
+    if (unlockFolderPassword) unlockFolderPassword.value = '';
+    if (unlockError) unlockError.style.display = 'none';
+    currentLockFolderPath = null;
+}
+
+// Check if folder is locked
+async function checkFolderLocked(folderPath) {
+    try {
+        const response = await fetch(`${API_BASE}/folders/check-locked?owner=${ghUser}&repo=${ghRepo}&folderPath=${encodeURIComponent(folderPath)}`, {
+            headers: { 'Authorization': `Bearer ${ghToken}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to check lock status');
+        }
+        
+        const data = await response.json();
+        return data.locked;
+    } catch (error) {
+        console.error('Error checking lock status:', error);
+        return false;
+    }
+}
+
+// Show lock folder dialog
+async function showLockFolderDialog(folderPath) {
+    currentLockFolderPath = 'Locked Folder';
+    
+    // Check if Locked Folder has a password
+    const isLocked = await checkFolderLocked('Locked Folder');
+    
+    if (lockFolderForm && unlockFolderForm && lockedFolderAction) {
+        if (isLocked) {
+            // Show unlock form
+            lockFolderForm.style.display = 'none';
+            unlockFolderForm.style.display = 'block';
+            lockedFolderAction.textContent = 'Unlock Locked Folder';
+        } else {
+            // Show lock form to set password
+            lockFolderForm.style.display = 'block';
+            unlockFolderForm.style.display = 'none';
+            lockedFolderAction.textContent = 'Set Password for Locked Folder';
+        }
+    }
+    
+    if (lockedFolderModal) {
+        lockedFolderModal.classList.remove('hidden');
+        
+        // Auto-focus the first input field based on which form is shown
+        setTimeout(() => {
+            if (isLocked) {
+                // Focus unlock password input
+                document.getElementById('unlockFolderPassword')?.focus();
+            } else {
+                // Focus lock password input
+                document.getElementById('lockFolderPassword')?.focus();
+            }
+        }, 100);
+    }
+}
+
+// Lock folder
+if (confirmLockBtn) {
+    confirmLockBtn.onclick = async () => {
+        const password = lockFolderPassword.value;
+        const confirmPassword = lockFolderPasswordConfirm.value;
+        
+        if (!password || password.length < 4) {
+            alert('Password must be at least 4 characters');
+            return;
+        }
+        
+        if (password !== confirmPassword) {
+            alert('Passwords do not match');
+            return;
+        }
+        
+        confirmLockBtn.disabled = true;
+        confirmLockBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locking...';
+        
+        try {
+            const response = await fetch(`${API_BASE}/folders/lock`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${ghToken}`
+                },
+                body: JSON.stringify({
+                    owner: ghUser,
+                    repo: ghRepo,
+                    password: password
+                })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to lock folder');
+            }
+            
+            const data = await response.json();
+            
+            // Close modal and reload files to show lock icon
+            lockedFolderModal.classList.add('hidden');
+            resetLockedFolderModal();
+            
+            // Show success message with hint
+            alert(`✅ Password set successfully!\n\n💡 Recovery hint: ${data.hint}`);
+            
+            // Reload current view and sidebar to update icons
+            await loadFiles(currentFolder);
+            await loadSidebarFolders();
+        } catch (error) {
+            console.error('Error locking folder:', error);
+            alert('Failed to lock folder: ' + error.message);
+        } finally {
+            confirmLockBtn.disabled = false;
+            confirmLockBtn.innerHTML = '<i class="fas fa-lock"></i> Lock Folder';
+        }
+    };
+}
+
+// Unlock folder
+if (confirmUnlockBtn) {
+    confirmUnlockBtn.onclick = async () => {
+        const password = unlockFolderPassword.value;
+        
+        if (!password) {
+            alert('Please enter password');
+            return;
+        }
+        
+        confirmUnlockBtn.disabled = true;
+        confirmUnlockBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unlocking...';
+        
+        try {
+            const response = await fetch(`${API_BASE}/folders/unlock`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${ghToken}`
+                },
+                body: JSON.stringify({
+                    owner: ghUser,
+                    repo: ghRepo,
+                    password: password
+                })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                if (response.status === 401) {
+                    // Show error in modal
+                    if (unlockError) {
+                        unlockError.style.display = 'block';
+                        unlockError.querySelector('span').textContent = 'Incorrect password';
+                    }
+                    return;
+                }
+                throw new Error(error.error || 'Failed to unlock folder');
+            }
+            
+            // Add Locked Folder to unlocked folders for this session
+            unlockedFolders.add('Locked Folder');
+            
+            // Close modal
+            lockedFolderModal.classList.add('hidden');
+            resetLockedFolderModal();
+            
+            // Reload sidebar to update icon
+            await loadSidebarFolders();
+            
+            // Navigate to the Locked Folder (or return to where user was trying to go)
+            const targetPath = currentFolder && currentFolder.startsWith('Locked Folder') ? currentFolder : 'Locked Folder';
+            await selectFolder(targetPath);
+        } catch (error) {
+            console.error('Error unlocking folder:', error);
+            alert('Failed to unlock folder: ' + error.message);
+        } finally {
+            confirmUnlockBtn.disabled = false;
+            confirmUnlockBtn.innerHTML = '<i class="fas fa-unlock"></i> Unlock Folder';
+        }
+    };
+}
+
+// Remove lock from folder
+if (removeLockBtn) {
+    removeLockBtn.onclick = async () => {
+        const password = unlockFolderPassword.value;
+        
+        if (!password) {
+            alert('Please enter password to remove lock');
+            return;
+        }
+        
+        const confirmed = confirm('Are you sure you want to remove the lock from this folder? This action cannot be undone.');
+        if (!confirmed) return;
+        
+        removeLockBtn.disabled = true;
+        removeLockBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Removing...';
+        
+        try {
+            const response = await fetch(`${API_BASE}/folders/unlock`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${ghToken}`
+                },
+                body: JSON.stringify({
+                    owner: ghUser,
+                    repo: ghRepo,
+                    password: password
+                })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                if (response.status === 401) {
+                    if (unlockError) {
+                        unlockError.style.display = 'block';
+                        unlockError.querySelector('span').textContent = 'Incorrect password';
+                    }
+                    return;
+                }
+                throw new Error(error.error || 'Failed to remove lock');
+            }
+            
+            // Remove Locked Folder from unlocked folders
+            unlockedFolders.delete('Locked Folder');
+            
+            // Close modal
+            lockedFolderModal.classList.add('hidden');
+            resetLockedFolderModal();
+            
+            alert('✅ Password removed successfully!');
+            
+            // Reload current view and sidebar to update icons
+            await loadFiles(currentFolder);
+            await loadSidebarFolders();
+        } catch (error) {
+            console.error('Error removing lock:', error);
+            alert('Failed to remove lock: ' + error.message);
+        } finally {
+            removeLockBtn.disabled = false;
+            removeLockBtn.innerHTML = '<i class="fas fa-trash"></i> Remove Lock';
+        }
+    };
+}
+
+window.showLockFolderDialog = showLockFolderDialog; // Expose globally for context menu

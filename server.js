@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const mime = require('mime-types');
 const crypto = require('crypto');
+const { aesEncrypt, aesDecrypt } = require('biencrypt');
 
 // Try to load sharp, but don't fail if it's not available
 let sharp;
@@ -33,6 +34,88 @@ const { logActivity } = require('./logger');
 
 // In-memory storage for share links: Map<username, Map<token, linkData>>
 const shareLinks = new Map();
+
+// In-memory storage for locked folders: Map<username, Map<folderPath, encryptedPassword>>
+const lockedFolders = new Map();
+
+const PASSWORD_FILE = '.locked-folders.json'; // Hidden file in repo root
+
+// Load passwords from GitHub repo
+async function loadPasswordsFromGitHub(octokit, owner, repo) {
+    try {
+        const { data } = await octokit.rest.repos.getContent({
+            owner,
+            repo,
+            path: PASSWORD_FILE
+        });
+        
+        const content = Buffer.from(data.content, 'base64').toString('utf-8');
+        const passwordData = JSON.parse(content);
+        
+        // Restore to Map structure
+        for (const [username, folders] of Object.entries(passwordData)) {
+            const folderMap = new Map(Object.entries(folders));
+            lockedFolders.set(username, folderMap);
+        }
+        
+        console.log('✅ Loaded passwords from GitHub repo:', owner + '/' + repo);
+        return data.sha;
+    } catch (error) {
+        if (error.status === 404) {
+            console.log('ℹ️  No password file found in repo (will create on first lock)');
+        } else {
+            console.error('❌ Error loading passwords:', error.message);
+        }
+        return null;
+    }
+}
+
+// Save passwords to GitHub repo
+async function savePasswordsToGitHub(octokit, owner, repo, username) {
+    try {
+        // Convert Map to plain object for JSON
+        const passwordData = {};
+        for (const [user, folders] of lockedFolders.entries()) {
+            passwordData[user] = Object.fromEntries(folders);
+        }
+        
+        const content = JSON.stringify(passwordData, null, 2);
+        const contentEncoded = Buffer.from(content).toString('base64');
+        
+        // Get current file SHA if exists
+        let sha = null;
+        try {
+            const { data } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: PASSWORD_FILE
+            });
+            sha = data.sha;
+        } catch (error) {
+            // File doesn't exist yet, will create new
+        }
+        
+        // Create or update file
+        await octokit.rest.repos.createOrUpdateFileContents({
+            owner,
+            repo,
+            path: PASSWORD_FILE,
+            message: `Update locked folder passwords`,
+            content: contentEncoded,
+            sha: sha || undefined,
+            committer: {
+                name: username,
+                email: `${username}@users.noreply.github.com`
+            }
+        });
+        
+        console.log('✅ Saved passwords to GitHub repo');
+        return true;
+    } catch (error) {
+        console.error('❌ Error saving passwords to GitHub:', error.message);
+        return false;
+    }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -224,6 +307,189 @@ app.post('/api/folders', (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to create folder' });
+    }
+});
+
+// Lock a folder with password
+app.post('/api/folders/lock', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, folderPath, password } = req.body;
+
+    if (!token || !owner || !repo || !password) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (password.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+
+    try {
+        const octokit = getOctokit(token);
+        const { data: userData } = await octokit.rest.users.getAuthenticated();
+        const username = userData.login;
+
+        // Use GitHub username as encryption key
+        const encryptedPassword = await aesEncrypt(password, username);
+
+        // Store encrypted password for "Locked Folder"
+        if (!lockedFolders.has(username)) {
+            lockedFolders.set(username, new Map());
+        }
+        
+        const userLockedFolders = lockedFolders.get(username);
+        const folderKey = `${repo}/Locked Folder`;
+        userLockedFolders.set(folderKey, encryptedPassword);
+
+        // Save to GitHub repo
+        await savePasswordsToGitHub(octokit, owner, repo, username);
+
+        res.json({ 
+            message: 'Locked Folder password set successfully',
+            folderPath: 'Locked Folder',
+            hint: `Use your GitHub username (${username}) if you forget the password`
+        });
+    } catch (error) {
+        console.error('Error locking folder:', error);
+        res.status(500).json({ error: 'Failed to lock folder' });
+    }
+});
+
+// Unlock a folder by verifying password
+app.post('/api/folders/unlock', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, password } = req.body;
+
+    if (!token || !owner || !repo || !password) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        const octokit = getOctokit(token);
+        const { data: userData } = await octokit.rest.users.getAuthenticated();
+        const username = userData.login;
+
+        // Check if Locked Folder has a password
+        const userLockedFolders = lockedFolders.get(username);
+        if (!userLockedFolders) {
+            return res.status(404).json({ error: 'Locked Folder has no password set' });
+        }
+
+        const folderKey = `${repo}/Locked Folder`;
+        const encryptedPassword = userLockedFolders.get(folderKey);
+        
+        if (!encryptedPassword) {
+            return res.status(404).json({ error: 'Locked Folder has no password set' });
+        }
+
+        // Decrypt and verify password
+        const decryptedPassword = await aesDecrypt(encryptedPassword, username);
+        
+        if (decryptedPassword === password) {
+            res.json({ 
+                message: 'Locked Folder unlocked successfully',
+                success: true
+            });
+        } else {
+            res.status(401).json({ error: 'Incorrect password' });
+        }
+    } catch (error) {
+        console.error('Error unlocking folder:', error);
+        res.status(500).json({ error: 'Failed to unlock folder' });
+    }
+});
+
+// Check if a folder is locked
+app.get('/api/folders/check-locked', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, folderPath } = req.query;
+
+    if (!token || !owner || !repo || folderPath === undefined) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Allow empty folderPath for root folder
+    if (folderPath === '') {
+        return res.json({ locked: false });
+    }
+
+    try {
+        const octokit = getOctokit(token);
+        const { data: userData } = await octokit.rest.users.getAuthenticated();
+        const username = userData.login;
+
+        // Check if path is "Locked Folder" or starts with "Locked Folder/"
+        const isLockedFolder = folderPath === 'Locked Folder' || folderPath.startsWith('Locked Folder/');
+        
+        if (!isLockedFolder) {
+            return res.json({ locked: false });
+        }
+
+        const userLockedFolders = lockedFolders.get(username);
+        if (!userLockedFolders) {
+            return res.json({ locked: false });
+        }
+
+        const folderKey = `${repo}/Locked Folder`;
+        const isLocked = userLockedFolders.has(folderKey);
+
+        res.json({ 
+            locked: isLocked,
+            folderPath
+        });
+    } catch (error) {
+        console.error('Error checking locked status:', error);
+        res.status(500).json({ error: 'Failed to check lock status' });
+    }
+});
+
+// Remove lock from a folder
+app.delete('/api/folders/unlock', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, password } = req.body;
+
+    if (!token || !owner || !repo || !password) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        const octokit = getOctokit(token);
+        const { data: userData } = await octokit.rest.users.getAuthenticated();
+        const username = userData.login;
+
+        const userLockedFolders = lockedFolders.get(username);
+        if (!userLockedFolders) {
+            return res.status(404).json({ error: 'Locked Folder has no password set' });
+        }
+
+        const folderKey = `${repo}/Locked Folder`;
+        const encryptedPassword = userLockedFolders.get(folderKey);
+        
+        if (!encryptedPassword) {
+            return res.status(404).json({ error: 'Locked Folder has no password set' });
+        }
+
+        // Verify password before removing lock
+        const decryptedPassword = await aesDecrypt(encryptedPassword, username);
+        
+        if (decryptedPassword === password) {
+            userLockedFolders.delete(folderKey);
+            if (userLockedFolders.size === 0) {
+                lockedFolders.delete(username);
+            }
+
+            // Save to GitHub repo
+            await savePasswordsToGitHub(octokit, owner, repo, username);
+
+            res.json({ 
+                message: 'Password removed from Locked Folder successfully',
+                success: true
+            });
+        } else {
+            res.status(401).json({ error: 'Incorrect password' });
+        }
+    } catch (error) {
+        console.error('Error removing lock:', error);
+        res.status(500).json({ error: 'Failed to remove lock' });
     }
 });
 

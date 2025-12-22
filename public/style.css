@@ -37,7 +37,7 @@ p{
 /* Rate Limit Modal Styles */
 .MobileDeviceModalBody{
     display: block !important;
-    overflow-y: scroll !important;
+    overflow-y: auto !important;
     max-height: 70vh !important;
 }
 
@@ -1099,6 +1099,49 @@ body.login-page {
 .folder-item i {
     font-size: 1.1rem;
     transition: color 0.2s;
+}
+
+/* Key action button for Locked Folder in sidebar */
+.key-action-btn {
+    margin-left: auto;
+    /* padding: 0.35rem 0.6rem; */
+    background: transparent;
+    border: 1px solid currentColor;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    opacity: 0.8;
+}
+
+.key-action-btn:hover {
+    opacity: 1;
+    transform: scale(1.05);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .key-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.key-action-btn i {
+    font-size: 0.875rem;
+}
+
+.folder-item.active .key-action-btn {
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.folder-item.active .key-action-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: white;
+}
+
+.sidebar.collapsed .key-action-btn {
+    display: none;
 }
 
 /* Sidebar Footer - Profile Section */
