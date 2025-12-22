@@ -324,6 +324,120 @@ async function fetchRateLimit() {
 
 // Fetch GitHub repository size
 async function fetchRepoSize() {
+    if (!ghToken || !ghUser || !ghRepo) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/github/repo-size`, {
+            headers: {
+                'x-gh-token': ghToken,
+                'x-gh-user': ghUser,
+                'x-gh-repo': ghRepo
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch repository size');
+        }
+
+        const data = await response.json();
+
+        // Format size display
+        let sizeDisplay;
+        let size = data.size; // Size in KB
+        if (size >= 1024 * 1024) { // >= 1GB
+            sizeDisplay = (size / (1024 * 1024)).toFixed(2) + ' GB';
+        } else if (size >= 1024) { // >= 1MB
+            sizeDisplay = (size / 1024).toFixed(2) + ' MB';
+        } else {
+            sizeDisplay = size.toFixed(2) + ' KB';
+        }
+
+        // Update repository size display
+        const repoSizeElement = document.getElementById('repoSize');
+        if (repoSizeElement) {
+            repoSizeElement.textContent = sizeDisplay;
+        }
+
+        // Calculate progress percentage (1GB = 100%)
+        const maxSize = 1024 * 1024; // 1GB in KB
+        const percentage = Math.min((size / maxSize) * 100, 100);
+
+        // Update progress bar if it exists
+        const progressBar = document.querySelector('.progress-bar-fill');
+        if (progressBar) {
+            progressBar.style.width = `${percentage}%`;
+
+            // Change color based on usage
+            if (percentage > 90) {
+                progressBar.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
+            } else if (percentage > 70) {
+                progressBar.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
+            } else {
+                progressBar.style.background = 'linear-gradient(90deg, #10b981, #059669)';
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching repository size:', error);
+        const repoSizeElement = document.getElementById('repoSize');
+        if (repoSizeElement) {
+            repoSizeElement.textContent = 'Error';
+        }
+    }
+}
+
+// Load user repositories for dropdown
+async function loadUserRepositories() {
+    const repoSelectElement = document.getElementById('repoSelect');
+    if (!repoSelectElement || !ghToken) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/github/repos`, {
+            headers: {
+                'Authorization': `Bearer ${ghToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch repositories');
+        }
+
+        const repos = await response.json();
+        
+        // Clear and populate dropdown
+        repoSelectElement.innerHTML = '';
+        
+        repos.forEach(repo => {
+            const option = document.createElement('option');
+            option.value = repo.name;
+            option.textContent = repo.private ? `${repo.name} (Private)` : repo.name;
+            
+            // Select current repo
+            if (repo.name === ghRepo) {
+                option.selected = true;
+            }
+            
+            repoSelectElement.appendChild(option);
+        });
+        
+        // If no repos found
+        if (repos.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No repositories';
+            repoSelectElement.appendChild(option);
+        }
+    } catch (error) {
+        console.error('Error loading repositories:', error);
+        repoSelectElement.innerHTML = '<option value="">Error loading repos</option>';
+    }
+}
+
+// Fetch GitHub repository size
+async function fetchRepoSize() {
     const storageLoading = document.getElementById('storageLoading');
     const storageContent = document.getElementById('storageContent');
     const storageError = document.getElementById('storageError');
@@ -494,6 +608,38 @@ async function loadApp() {
         });
     }
 
+    // Initialize repository selector
+    const repoSelectElement = document.getElementById('repoSelect');
+    if (repoSelectElement) {
+        // Load user repositories
+        await loadUserRepositories();
+        
+        // Handle repo change
+        repoSelectElement.addEventListener('change', async (e) => {
+            const newRepo = e.target.value;
+            if (newRepo && newRepo !== ghRepo) {
+                // Update global repo
+                ghRepo = newRepo;
+                localStorage.setItem('gh_repo', newRepo);
+                
+                // Reset to root folder
+                currentFolder = '';
+                selectedFiles.clear();
+                
+                // Show loading
+                fileGrid.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Switching repository...</p></div>';
+                
+                // Reload everything
+                await loadSidebarFolders();
+                await loadFiles('');
+                await fetchRepoSize();
+                
+                // Update breadcrumb
+                updateBreadcrumb([]);
+            }
+        });
+    }
+
     // Initialize hard refresh button
     const hardRefreshBtn = document.getElementById('hardRefreshBtn');
     if (hardRefreshBtn) {
@@ -506,8 +652,8 @@ async function loadApp() {
                     });
                 });
             }
-            // Force reload from server (bypass cache)
-            window.location.reload(true);
+            // Force reload with timestamp to bypass all caching
+            window.location.href = window.location.pathname + '?refresh=' + new Date().getTime();
         });
     }
 
