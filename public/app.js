@@ -4351,7 +4351,79 @@ const confirmLockBtn = document.getElementById('confirmLockBtn');
 const confirmUnlockBtn = document.getElementById('confirmUnlockBtn');
 const removeLockBtn = document.getElementById('removeLockBtn');
 
+// Forgot Password elements
+const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+const closeForgotPasswordModal = document.getElementById('closeForgotPasswordModal');
+const recoveryUsername = document.getElementById('recoveryUsername');
+const copyUsernameBtn = document.getElementById('copyUsernameBtn');
+const openPasswordFileLink = document.getElementById('openPasswordFileLink');
+
 let currentLockFolderPath = null; // Track folder being locked/unlocked
+
+// Forgot Password functionality
+if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        // Set GitHub username
+        if (recoveryUsername) {
+            recoveryUsername.value = ghUser;
+        }
+        
+        // Set password file link
+        if (openPasswordFileLink && ghUser && ghRepo) {
+            openPasswordFileLink.href = `https://github.com/${ghUser}/${ghRepo}/blob/${ghBranch || 'main'}/.locked-folders.json`;
+        }
+        
+        // Show forgot password modal
+        if (forgotPasswordModal) {
+            forgotPasswordModal.classList.remove('hidden');
+        }
+    });
+}
+
+if (closeForgotPasswordModal) {
+    closeForgotPasswordModal.addEventListener('click', () => {
+        forgotPasswordModal.classList.add('hidden');
+    });
+}
+
+if (copyUsernameBtn && recoveryUsername) {
+    copyUsernameBtn.addEventListener('click', () => {
+        recoveryUsername.select();
+        document.execCommand('copy');
+        
+        // Show feedback
+        const originalHTML = copyUsernameBtn.innerHTML;
+        copyUsernameBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        copyUsernameBtn.style.background = '#10b981';
+        
+        setTimeout(() => {
+            copyUsernameBtn.innerHTML = originalHTML;
+            copyUsernameBtn.style.background = '';
+        }, 2000);
+    });
+}
+
+// Close forgot password modal on outside click
+if (forgotPasswordModal) {
+    forgotPasswordModal.addEventListener('click', (e) => {
+        if (e.target === forgotPasswordModal) {
+            forgotPasswordModal.classList.add('hidden');
+        }
+    });
+}
+
+// Close forgot password modal on "Okay, Got It" button click
+const okayForgotPassword = document.getElementById('okayForgotPassword');
+if (okayForgotPassword) {
+    okayForgotPassword.addEventListener('click', () => {
+        if (forgotPasswordModal) {
+            forgotPasswordModal.classList.add('hidden');
+        }
+    });
+}
 
 // Close locked folder modal
 if (closeLockedFolderModal) {

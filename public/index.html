@@ -4,28 +4,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="GitHub-based document management system. Upload, organize, and share files with drag-and-drop support, folder organization, and expiring share links.">
-    <meta name="keywords" content="mero document, document viewer, file upload, GitHub storage, document management, file sharing, cloud storage">
+    <meta name="description"
+        content="GitHub-based document management system. Upload, organize, and share files with drag-and-drop support, folder organization, and expiring share links.">
+    <meta name="keywords"
+        content="mero document, document viewer, file upload, GitHub storage, document management, file sharing, cloud storage">
     <meta name="author" content="Bibek Chand sah">
     <meta name="robots" content="index, follow">
     <meta name="language" content="English">
-    
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://merodocument.bibekchandsah.com.np/">
     <meta property="og:title" content="Document Viewer - GitHub-Based File Management">
-    <meta property="og:description" content="Manage and share your documents using GitHub. Upload files, organize folders, and generate secure share links.">
+    <meta property="og:description"
+        content="Manage and share your documents using GitHub. Upload files, organize folders, and generate secure share links.">
     <meta property="og:image" content="favicon/android-icon-192x192.png">
     <meta property="og:image:width" content="192">
     <meta property="og:image:height" content="192">
-    
+
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://merodocument.bibekchandsah.com.np/">
     <meta name="twitter:title" content="Document Viewer - GitHub-Based File Management">
-    <meta name="twitter:description" content="Manage and share your documents using GitHub. Upload files, organize folders, and generate secure share links.">
+    <meta name="twitter:description"
+        content="Manage and share your documents using GitHub. Upload files, organize folders, and generate secure share links.">
     <meta name="twitter:image" content="favicon/android-icon-192x192.png">
-    
+
     <title>Document Viewer | Upload, Manage & Share Files</title>
     <link rel="canonical" href="https://merodocument.bibekchandsah.com.np/">
     <link rel="stylesheet" href="style.css">
@@ -56,7 +60,7 @@
     <meta name="msapplication-TileImage" content="favicon/ms-icon-144x144.png">
     <meta name="theme-color" content="#ffffff">
     <link rel="manifest" href="favicon/manifest.json">
-    
+
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
     {
@@ -224,9 +228,11 @@
     <div id="viewerModal" class="modal hidden">
         <div class="modal-content">
             <!-- Navigation buttons as overlay -->
-            <button id="prevFileBtn" class="file-nav-btn file-nav-prev" title="Previous File (←)" style="display: none;"><i class="fas fa-chevron-left"></i></button>
-            <button id="nextFileBtn" class="file-nav-btn file-nav-next" title="Next File (→)" style="display: none;"><i class="fas fa-chevron-right"></i></button>
-            
+            <button id="prevFileBtn" class="file-nav-btn file-nav-prev" title="Previous File (←)"
+                style="display: none;"><i class="fas fa-chevron-left"></i></button>
+            <button id="nextFileBtn" class="file-nav-btn file-nav-next" title="Next File (→)" style="display: none;"><i
+                    class="fas fa-chevron-right"></i></button>
+
             <div class="modal-header">
                 <h3 id="viewerFileName">Document Name</h3>
                 <div class="modal-actions">
@@ -248,7 +254,8 @@
                 <button id="zoomOutBtn" class="zoom-btn" title="Zoom Out"><i class="fas fa-search-minus"></i></button>
                 <span id="zoomLevel" class="zoom-level-text">100%</span>
                 <button id="zoomInBtn" class="zoom-btn" title="Zoom In"><i class="fas fa-search-plus"></i></button>
-                <button id="zoomResetBtn" class="zoom-btn" title="Reset Zoom"><i class="fas fa-compress-arrows-alt"></i></button>
+                <button id="zoomResetBtn" class="zoom-btn" title="Reset Zoom"><i
+                        class="fas fa-compress-arrows-alt"></i></button>
             </div>
         </div>
     </div>
@@ -329,7 +336,9 @@
             </div>
             <div class="modal-body MobileDeviceModalBody" style="padding: 2rem;">
                 <div id="propertiesContent">
-                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading properties...</p></div>
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading properties...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -434,13 +443,17 @@
                 </div>
                 <!-- Rotation Control at Bottom Center -->
                 <div id="rotationControl" class="rotation-control-bottom" style="display: none;">
-                    <button id="rotateLeftFineBtn" class="rotation-btn" title="Rotate Left 1°"><i class="fas fa-chevron-left"></i></button>
+                    <button id="rotateLeftFineBtn" class="rotation-btn" title="Rotate Left 1°"><i
+                            class="fas fa-chevron-left"></i></button>
                     <div class="rotation-slider-container">
                         <div id="rotationTooltip" class="rotation-value-tooltip">0°</div>
-                        <input type="range" id="rotationSlider" min="-180" max="180" value="0" step="1" class="rotation-slider">
+                        <input type="range" id="rotationSlider" min="-180" max="180" value="0" step="1"
+                            class="rotation-slider">
                     </div>
-                    <button id="rotateRightFineBtn" class="rotation-btn" title="Rotate Right 1°"><i class="fas fa-chevron-right"></i></button>
-                    <button id="rotationResetBtn" class="rotation-btn" title="Reset Rotation"><i class="fas fa-sync-alt"></i></button>
+                    <button id="rotateRightFineBtn" class="rotation-btn" title="Rotate Right 1°"><i
+                            class="fas fa-chevron-right"></i></button>
+                    <button id="rotationResetBtn" class="rotation-btn" title="Reset Rotation"><i
+                            class="fas fa-sync-alt"></i></button>
                 </div>
             </div>
         </div>
@@ -458,10 +471,11 @@
             </div>
             <div class="modal-body" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
                 <div style="flex: 1; display: flex; flex-direction: column;">
-                    <label for="textEditorContent" style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-color);">
+                    <label for="textEditorContent"
+                        style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-color);">
                         <i class="fas fa-file-code"></i> File Content
                     </label>
-                    <textarea id="textEditorContent" 
+                    <textarea id="textEditorContent"
                         style="flex: 1; padding: 1rem; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; 
                                font-size: 0.875rem; line-height: 1.5; border: 1px solid var(--border-color); 
                                border-radius: 0.5rem; width: 85vw; background: var(--card-bg); color: var(--text-color);"
@@ -471,8 +485,7 @@
                     <label for="commitMessage" style="font-weight: 600; color: var(--text-color);">
                         <i class="fas fa-comment"></i> Commit Message <span style="color: #ef4444;">*</span>
                     </label>
-                    <input type="text" id="commitMessage" placeholder="Describe your changes..." 
-                        style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; 
+                    <input type="text" id="commitMessage" placeholder="Describe your changes..." style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; 
                                font-size: 0.875rem; background: var(--card-bg); color: var(--text-color);" />
                     <p style="font-size: 0.75rem; color: var(--secondary-text); margin: 0;">
                         <i class="fas fa-info-circle"></i> This message will be used as the commit message in GitHub
@@ -597,7 +610,8 @@
 
                     <!-- Storage Usage Section -->
                     <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
-                        <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-color);">
+                        <h4
+                            style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-color);">
                             <i class="fas fa-database"></i> Repository Storage
                         </h4>
                         <div id="storageLoading" style="text-align: center; padding: 1rem;">
@@ -611,7 +625,7 @@
                                 </div>
                                 <div class="rate-limit-value" id="repoSize" style="font-size: 1rem;">-</div>
                             </div>
-                            
+
                             <!-- Fast Access Storage (1GB) -->
                             <div class="rate-limit-progress" style="margin-bottom: 1rem;">
                                 <div class="progress-label">
@@ -638,7 +652,8 @@
 
                             <div class="rate-limit-info" style="margin-top: 0.75rem;">
                                 <i class="fas fa-info-circle"></i>
-                                <span style="font-size: 0.75rem;">GitHub provides <strong>1GB fast access</strong> and <strong>100GB soft limit</strong> for repositories.</span>
+                                <span style="font-size: 0.75rem;">GitHub provides <strong>1GB fast access</strong> and
+                                    <strong>100GB soft limit</strong> for repositories.</span>
                             </div>
                         </div>
                         <div id="storageError" style="display: none; text-align: center; padding: 0.5rem;">
@@ -749,37 +764,44 @@
                 <!-- Set Password Form -->
                 <div id="lockFolderForm">
                     <p style="margin-bottom: 1.5rem; color: var(--text-color); line-height: 1.6;">
-                        <i class="fas fa-folder-lock" style="color: #ef4444;"></i> 
-                        Protect your sensitive files by setting a password for the <strong>Locked Folder</strong>. 
+                        <i class="fas fa-folder-lock" style="color: #ef4444;"></i>
+                        Protect your sensitive files by setting a password for the <strong>Locked Folder</strong>.
                         All files and subfolders inside will be protected.
                     </p>
-                    
+
                     <!-- Warning for public repos -->
-                    <div style="background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; font-size: 0.875rem; line-height: 1.6;">
-                        <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> 
-                        <strong>Important:</strong> Make sure this is a <strong>private repository</strong>. 
-                        If your repo is public, the Locked Folder and its contents will be accessible by anyone, 
+                    <div
+                        style="background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; font-size: 0.875rem; line-height: 1.6;">
+                        <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i>
+                        <strong>Important:</strong> Make sure this is a <strong>private repository</strong>.
+                        If your repo is public, the Locked Folder and its contents will be accessible by anyone,
                         even though the password is encrypted.
                     </div>
-                    
+
                     <div style="margin-bottom: 1.5rem;">
-                        <label for="lockFolderPassword" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                        <label for="lockFolderPassword"
+                            style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
                             <i class="fas fa-key"></i> Set Password (min 4 characters)
                         </label>
-                        <input type="password" id="lockFolderPassword" placeholder="Enter password" 
-                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);" minlength="4" 
+                        <input type="password" id="lockFolderPassword" placeholder="Enter password"
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);"
+                            minlength="4"
                             onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('lockFolderPasswordConfirm').focus();}" />
                     </div>
                     <div style="margin-bottom: 1.5rem;">
-                        <label for="lockFolderPasswordConfirm" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                        <label for="lockFolderPasswordConfirm"
+                            style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
                             <i class="fas fa-check"></i> Confirm Password
                         </label>
-                        <input type="password" id="lockFolderPasswordConfirm" placeholder="Re-enter password" 
-                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);" minlength="4" 
+                        <input type="password" id="lockFolderPasswordConfirm" placeholder="Re-enter password"
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);"
+                            minlength="4"
                             onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('confirmLockBtn').click();}" />
                     </div>
-                    <div style="background: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1.5rem; font-size: 0.875rem;">
-                        <i class="fas fa-info-circle"></i> <strong>Recovery Key:</strong> Your GitHub username can be used to recover access if you forget the password.
+                    <div
+                        style="background: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1.5rem; font-size: 0.875rem;">
+                        <i class="fas fa-info-circle"></i> <strong>Recovery Key:</strong> Your GitHub username can be
+                        used to recover access if you forget the password.
                     </div>
                     <button id="confirmLockBtn" class="primary-btn" style="width: 100%; background: #ef4444;">
                         <i class="fas fa-shield-alt"></i> Set Password
@@ -789,26 +811,88 @@
                 <!-- Unlock Folder Form -->
                 <div id="unlockFolderForm" style="display: none;">
                     <p style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">
-                        <i class="fas fa-shield-alt" style="font-size: 2.5rem; color: #ef4444; display: block; margin-bottom: 0.5rem;"></i>
+                        <i class="fas fa-shield-alt"
+                            style="font-size: 2.5rem; color: #ef4444; display: block; margin-bottom: 0.5rem;"></i>
                         <strong>Locked Folder</strong> is password protected.<br>
-                        <span style="font-size: 0.875rem; color: var(--secondary-text);">Enter your password to access sensitive files</span>
+                        <span style="font-size: 0.875rem; color: var(--secondary-text);">Enter your password to access
+                            sensitive files</span>
                     </p>
                     <div style="margin-bottom: 1.5rem;">
-                        <label for="unlockFolderPassword" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                        <label for="unlockFolderPassword"
+                            style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
                             <i class="fas fa-key"></i> Password
                         </label>
-                        <input type="password" id="unlockFolderPassword" placeholder="Enter password" 
-                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);" 
+                        <input type="password" id="unlockFolderPassword" placeholder="Enter password"
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--card-bg); color: var(--text-color);"
                             onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('confirmUnlockBtn').click();}" />
                     </div>
-                    <div id="unlockError" style="display: none; background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem;">
+                    <div id="unlockError"
+                        style="display: none; background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem;">
                         <i class="fas fa-exclamation-triangle"></i> <span>Incorrect password</span>
                     </div>
                     <button id="confirmUnlockBtn" class="primary-btn" style="width: 100%; margin-bottom: 0.75rem;">
                         <i class="fas fa-unlock"></i> Unlock & Access
                     </button>
-                    <button id="removeLockBtn" class="secondary-btn" style="width: 100%;">
+                    <button id="removeLockBtn" class="secondary-btn" style="width: 100%; margin-bottom: 0.75rem;">
                         <i class="fas fa-trash"></i> Remove Password Protection
+                    </button>
+                    <div style="text-align: center;">
+                        <a id="forgotPasswordLink" href="#"
+                            style="color: var(--primary-color); text-decoration: none; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                            <i class="fas fa-question-circle"></i> Forgot Password?
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal" class="modal modal-overlay hidden">
+        <div style="max-width: 550px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-question-circle"></i> Password Recovery</h3>
+                <button id="closeForgotPasswordModal" class="icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body MobileDeviceModalBody" style="padding: 1.5rem;">
+                <div class="info-banner" style="margin-bottom: 1.5rem;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Follow these steps to decrypt your password from GitHub</span>
+                </div>
+
+                <div style="margin-bottom: 1.5rem; width: 100%; background: var(--hover-bg); color: var(--text-color); border-radius: 8px; padding: 15px;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                        <i class="fas fa-user"></i> Your GitHub Username:
+                    </label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="recoveryUsername" readonly
+                            style="flex: 1; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; font-family: monospace;">
+                        <button id="copyUsernameBtn" class="primary-btn" style="padding: 0.75rem 1rem;">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+
+                <div style="background-color: var(--hover-bg); border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1rem;">
+                    <h4 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 0.95rem;">
+                        <i class="fas fa-list-ol"></i> Recovery Steps:
+                    </h4>
+                    <ol style="margin: 0; padding-left: 1.5rem; line-height: 1.8; color: var(--text-color);">
+                        <li>Open your <a id="openPasswordFileLink" href="#" target="_blank"
+                                style="color: var(--primary-color); text-decoration: underline;">password file on
+                                GitHub</a></li>
+                        <li>Copy the encrypted password value (long base64 string)</li>
+                        <li>Open the <a href="https://bibekchandsah.github.io/biencrypt/aes_encryption.html"
+                                target="_blank"
+                                style="color: var(--primary-color); text-decoration: underline;">Decryption Tool</a>
+                        </li>
+                        <li>Paste your GitHub username and the encrypted value to decrypt</li>
+                    </ol>
+                </div>
+
+                <div style="text-align: center; margin-top: 1.5rem; display: flex; justify-content: center;">
+                    <button id="okayForgotPassword" class="primary-btn" style="padding: 0.75rem 2rem;">
+                        <i class="fas fa-check"></i> Okay, Got It
                     </button>
                 </div>
             </div>
