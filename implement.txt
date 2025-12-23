@@ -15,8 +15,8 @@ Desktop app
 Mobile app (implemented)
 
 7) user will upload all files to the github repository integration
-8) google document viewer support for all types of files (admin & sharing)
-9) github avatar and logout
+8) google | microsoft document viewer support for all types of files (admin & sharing)
+9) github avatar and logoutr
 10) clean print
 renaming the file > 1MB fixed
 dragging file supported to any folder (sidebar & self sub folders)
@@ -73,6 +73,8 @@ Repository Size: 878.40 MB
 36) File encryption - Password-protect sensitive files (not for public repo)
         warning:- Make sure it's private repo bcz if it's public then lock folder is accessible by public users too
 37) Repo dropdown
+38) thumbnaail preview fixed and view-option-bar horizontal scrolling using mouse
+39) progressive rendering of directory in copy & move 
 Auto-refresh - Detect external changes and update view
 
 1. File Management Operations

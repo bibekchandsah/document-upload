@@ -38,6 +38,19 @@ const sidebarToggle = document.getElementById('sidebarToggle');
 // Initialize Image Editor Module
 let imageEditor = null;
 
+// Horizontal scroll for view-options-bar with mouse wheel
+const viewOptionsBar = document.querySelector('.view-options-bar');
+if (viewOptionsBar) {
+    viewOptionsBar.addEventListener('wheel', (e) => {
+        // Prevent default vertical scroll
+        if (e.deltaY !== 0) {
+            e.preventDefault();
+            // Scroll horizontally using the vertical scroll delta
+            viewOptionsBar.scrollLeft += e.deltaY;
+        }
+    }, { passive: false });
+}
+
 // Sidebar toggle functionality
 if (sidebarToggle && sidebar) {
     // Check if sidebar should start collapsed on mobile
@@ -1406,8 +1419,15 @@ async function renderFiles(items) {
 
                 thumbnail.dataset.thumbnailUrl = thumbnailUrl;
 
-                // Observe for lazy loading
-                thumbnailObserver.observe(thumbnail);
+                // Check if thumbnail was already loaded (cached)
+                if (item.thumbnailUrl) {
+                    // Use cached thumbnail
+                    thumbnail.src = item.thumbnailUrl;
+                    thumbnail.classList.remove('loading');
+                } else {
+                    // Observe for lazy loading
+                    thumbnailObserver.observe(thumbnail);
+                }
 
                 // Add error handler for img element
                 thumbnail.onerror = () => {
@@ -3589,86 +3609,119 @@ async function renderFolderTree() {
 
     try {
         // Add Home folder
-        const homeDiv = document.createElement('div');
-        homeDiv.className = 'folder-tree-item';
-        homeDiv.style.display = 'flex';
-        homeDiv.style.alignItems = 'center';
-        homeDiv.style.gap = '0.5rem';
-        homeDiv.style.padding = '0.5rem';
-        homeDiv.style.cursor = 'pointer';
-        homeDiv.dataset.folder = '';
-
-        const homeCheckbox = document.createElement('input');
-        homeCheckbox.type = 'checkbox';
-        homeCheckbox.style.cursor = 'pointer';
-        homeCheckbox.onclick = (e) => {
-            e.stopPropagation();
-            toggleDestFolder('');
-        };
-
-        const homeLabel = document.createElement('span');
-        homeLabel.innerHTML = '<i class="fas fa-home"></i> Home';
-        homeLabel.style.flex = '1';
-
-        homeDiv.appendChild(homeCheckbox);
-        homeDiv.appendChild(homeLabel);
-        homeDiv.onclick = () => toggleDestFolder('');
-
+        const homeDiv = createFolderTreeItem('', '<i class="fas fa-home"></i> Home', 0);
+        
         // Disable if current folder is home
         if (currentFolder === '') {
             homeDiv.style.opacity = '0.5';
             homeDiv.style.cursor = 'not-allowed';
             homeDiv.style.pointerEvents = 'none';
-            homeCheckbox.disabled = true;
+            homeDiv.querySelector('input[type="checkbox"]').disabled = true;
             homeDiv.title = 'Cannot move/copy to current folder';
         }
 
         folderTree.appendChild(homeDiv);
 
-        // Get all folders recursively
-        const folders = await fetchAllFolders();
-        folders.forEach(folder => {
-            const indent = folder.split('/').length - 1;
-            const div = document.createElement('div');
-            div.className = 'folder-tree-item';
-            div.style.display = 'flex';
-            div.style.alignItems = 'center';
-            div.style.gap = '0.5rem';
-            div.style.paddingLeft = `${indent + 1}rem`;
-            div.style.padding = '0.5rem';
-            div.style.cursor = 'pointer';
-            div.dataset.folder = folder;
+        // Add loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'folderTreeLoading';
+        loadingDiv.style.padding = '1rem';
+        loadingDiv.style.textAlign = 'center';
+        loadingDiv.style.color = '#6b7280';
+        loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading folders...';
+        folderTree.appendChild(loadingDiv);
 
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.style.cursor = 'pointer';
-            checkbox.onclick = (e) => {
-                e.stopPropagation();
-                toggleDestFolder(folder);
-            };
+        // Get all folders recursively with progressive rendering
+        await fetchAllFoldersProgressive();
 
-            const label = document.createElement('span');
-            label.innerHTML = `<i class="fas fa-folder"></i> ${folder.split('/').pop()}`;
-            label.style.flex = '1';
+        // Remove loading indicator
+        const loading = document.getElementById('folderTreeLoading');
+        if (loading) loading.remove();
 
-            div.appendChild(checkbox);
-            div.appendChild(label);
-            div.onclick = () => toggleDestFolder(folder);
-
-            // Disable if it's the current folder
-            if (folder === currentFolder) {
-                div.style.opacity = '0.5';
-                div.style.cursor = 'not-allowed';
-                div.style.pointerEvents = 'none';
-                checkbox.disabled = true;
-                div.title = 'Cannot move/copy to current folder';
-            }
-
-            folderTree.appendChild(div);
-        });
     } catch (err) {
         console.error('Error loading folders:', err);
-        folderTree.innerHTML = '<div style="padding: 1rem; text-align: center; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Failed to load folders</div>';
+        const loading = document.getElementById('folderTreeLoading');
+        if (loading) {
+            loading.innerHTML = '<div style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Failed to load folders</div>';
+        }
+    }
+}
+
+function createFolderTreeItem(folderPath, labelHTML, indent) {
+    const div = document.createElement('div');
+    div.className = 'folder-tree-item';
+    div.style.display = 'flex';
+    div.style.alignItems = 'center';
+    div.style.gap = '0.5rem';
+    div.style.paddingLeft = `${indent + 1}rem`;
+    div.style.padding = '0.5rem';
+    div.style.cursor = 'pointer';
+    div.dataset.folder = folderPath;
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.style.cursor = 'pointer';
+    checkbox.onclick = (e) => {
+        e.stopPropagation();
+        toggleDestFolder(folderPath);
+    };
+
+    const label = document.createElement('span');
+    label.innerHTML = labelHTML;
+    label.style.flex = '1';
+
+    div.appendChild(checkbox);
+    div.appendChild(label);
+    div.onclick = () => toggleDestFolder(folderPath);
+
+    // Disable if it's the current folder
+    if (folderPath === currentFolder) {
+        div.style.opacity = '0.5';
+        div.style.cursor = 'not-allowed';
+        div.style.pointerEvents = 'none';
+        checkbox.disabled = true;
+        div.title = 'Cannot move/copy to current folder';
+    }
+
+    return div;
+}
+
+async function fetchAllFoldersProgressive(path = '', indent = 0) {
+    try {
+        const items = await fetchGitHubFiles(path);
+        const folderTree = document.getElementById('folderTree');
+        const loadingDiv = document.getElementById('folderTreeLoading');
+        
+        // Collect folders at this level
+        const subfolderPaths = [];
+        for (const item of items) {
+            if (item.isDirectory) {
+                const folderPath = path ? `${path}/${item.name}` : item.name;
+                subfolderPaths.push(folderPath);
+                
+                // Create and add folder item immediately (progressive rendering)
+                const folderItem = createFolderTreeItem(
+                    folderPath, 
+                    `<i class="fas fa-folder"></i> ${item.name}`,
+                    indent
+                );
+                
+                // Insert before loading indicator
+                if (loadingDiv && loadingDiv.parentNode === folderTree) {
+                    folderTree.insertBefore(folderItem, loadingDiv);
+                } else {
+                    folderTree.appendChild(folderItem);
+                }
+            }
+        }
+
+        // Recursively fetch subfolders (one level at a time for progressive loading)
+        for (const folderPath of subfolderPaths) {
+            await fetchAllFoldersProgressive(folderPath, indent + 1);
+        }
+
+    } catch (err) {
+        console.error('Error fetching folders:', err);
     }
 }
 
@@ -3703,39 +3756,6 @@ function updateSelectedFoldersCount() {
     if (countSpan) {
         const count = selectedDestFolders.size;
         countSpan.textContent = `${count} folder${count !== 1 ? 's' : ''} selected`;
-    }
-}
-
-async function fetchAllFolders(path = '') {
-    try {
-        const items = await fetchGitHubFiles(path);
-        const folders = [];
-
-        // Collect all immediate subfolders
-        const subfolderPaths = [];
-        for (const item of items) {
-            if (item.isDirectory) {
-                const folderPath = path ? `${path}/${item.name}` : item.name;
-                folders.push(folderPath);
-                subfolderPaths.push(folderPath);
-            }
-        }
-
-        // Fetch all subfolders in parallel for better performance
-        if (subfolderPaths.length > 0) {
-            const subfolderPromises = subfolderPaths.map(folderPath => fetchAllFolders(folderPath));
-            const subfolderResults = await Promise.all(subfolderPromises);
-
-            // Flatten and add all nested folders
-            subfolderResults.forEach(subFolders => {
-                folders.push(...subFolders);
-            });
-        }
-
-        return folders;
-    } catch (err) {
-        console.error('Error fetching folders:', err);
-        return [];
     }
 }
 
