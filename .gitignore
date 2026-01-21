@@ -1,6 +1,6 @@
 node_modules/
 uploads/
-.github/
+.github/prompts/
 .env
 command.txt
 image1.png
