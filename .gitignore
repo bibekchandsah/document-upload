@@ -4,3 +4,5 @@ uploads/
 .env
 command.txt
 image1.png
+.vercel
+.env*.local
