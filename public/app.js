@@ -160,6 +160,86 @@ function applyStatusBarPreference() {
     itemStatusBar.classList.toggle('hidden', !showStatusBar);
 }
 
+const pdfThumbnailInFlight = new Map();
+
+function ensurePdfJsWorker() {
+    if (typeof pdfjsLib === 'undefined') {
+        return false;
+    }
+
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    return true;
+}
+
+async function fetchPdfThumbnailBlob(filePath) {
+    if (!ensurePdfJsWorker()) {
+        throw new Error('PDF.js not available');
+    }
+
+    const response = await fetch(`${API_BASE}/github/view?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}`, {
+        headers: { 'Authorization': `Bearer ${ghToken}` }
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch PDF file');
+    }
+
+    const pdfData = await response.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+    const pdf = await loadingTask.promise;
+
+    try {
+        const firstPage = await pdf.getPage(1);
+        const baseViewport = firstPage.getViewport({ scale: 1 });
+        const maxSide = 200;
+        const fitScale = Math.min(maxSide / baseViewport.width, maxSide / baseViewport.height);
+        const viewport = firstPage.getViewport({ scale: fitScale });
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        await firstPage.render({
+            canvasContext: context,
+            viewport
+        }).promise;
+
+        const thumbnailBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, 'image/jpeg', 0.8);
+        });
+
+        if (!thumbnailBlob) {
+            throw new Error('Failed to render PDF thumbnail');
+        }
+
+        return thumbnailBlob;
+    } finally {
+        if (pdf && typeof pdf.destroy === 'function') {
+            pdf.destroy();
+        }
+    }
+}
+
+function getPdfThumbnailBlob(filePath) {
+    if (pdfThumbnailInFlight.has(filePath)) {
+        return pdfThumbnailInFlight.get(filePath);
+    }
+
+    const task = fetchPdfThumbnailBlob(filePath).finally(() => {
+        pdfThumbnailInFlight.delete(filePath);
+    });
+
+    pdfThumbnailInFlight.set(filePath, task);
+    return task;
+}
+
 // Lazy Loading Observer
 const thumbnailObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
@@ -167,6 +247,37 @@ const thumbnailObserver = new IntersectionObserver((entries, observer) => {
             const img = entry.target;
             const thumbnailUrl = img.dataset.thumbnailUrl;
             const item = currentFiles.find(f => f.name === img.dataset.fileName);
+            const thumbnailType = img.dataset.thumbnailType || 'image';
+            const filePath = img.dataset.filePath;
+
+            if (thumbnailType === 'pdf' && filePath && item) {
+                const card = img.closest('.file-card');
+                const icon = card ? card.querySelector('.file-icon') : null;
+
+                if (item.thumbnailUrl) {
+                    img.src = item.thumbnailUrl;
+                    img.classList.remove('loading');
+                    observer.unobserve(img);
+                    return;
+                }
+
+                getPdfThumbnailBlob(filePath)
+                    .then((thumbnailBlob) => {
+                        const objectUrl = URL.createObjectURL(thumbnailBlob);
+                        img.src = objectUrl;
+                        img.classList.remove('loading');
+                        item.thumbnailUrl = objectUrl;
+                    })
+                    .catch((err) => {
+                        console.error('PDF thumbnail load error:', err);
+                        img.classList.remove('loading');
+                        img.style.display = 'none';
+                        if (icon) icon.style.display = 'block';
+                    });
+
+                observer.unobserve(img);
+                return;
+            }
 
             if (thumbnailUrl && item && !item.thumbnailUrl) {
                 // Fetch thumbnail
@@ -1574,9 +1685,10 @@ async function renderFiles(items) {
                 fileMeta.textContent = metaText;
             }
 
-            // Create thumbnail element for images (including iPhone formats)
+            // Create thumbnail element for images and PDFs
             const isImage = (item.type && item.type.includes('image')) || item.name.match(/\.(heic|heif)$/i);
-            if (isImage) {
+            const isPdf = item.type === 'application/pdf' || item.name.toLowerCase().endsWith('.pdf');
+            if (isImage || isPdf) {
                 const thumbnail = document.createElement('img');
                 thumbnail.className = 'file-thumbnail';
                 thumbnail.alt = '';
@@ -1586,11 +1698,15 @@ async function renderFiles(items) {
                 thumbnail.classList.add('loading');
                 thumbnail.dataset.fileName = item.name;
 
-                // Load thumbnail using server-side thumbnail endpoint
                 const filePath = itemFolder ? `${itemFolder}/${item.name}` : item.name;
-                const thumbnailUrl = `${API_BASE}/github/thumbnail?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}&size=200`;
+                thumbnail.dataset.filePath = filePath;
+                thumbnail.dataset.thumbnailType = isPdf ? 'pdf' : 'image';
 
-                thumbnail.dataset.thumbnailUrl = thumbnailUrl;
+                if (!isPdf) {
+                    // Image thumbnails are generated server-side
+                    const thumbnailUrl = `${API_BASE}/github/thumbnail?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(filePath)}&size=200`;
+                    thumbnail.dataset.thumbnailUrl = thumbnailUrl;
+                }
 
                 // Check if thumbnail was already loaded (cached)
                 if (item.thumbnailUrl) {
