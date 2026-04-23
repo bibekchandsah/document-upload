@@ -886,10 +886,12 @@ async function loadApp() {
     
     if (sortBySelect) {
         sortBySelect.value = sortBy;
-        sortBySelect.addEventListener('change', (e) => {
+        sortBySelect.addEventListener('change', async (e) => {
             sortBy = e.target.value;
             localStorage.setItem('sortBy', sortBy);
-            if (currentFiles && currentFiles.length > 0) {
+            if (sortBy === 'date') {
+                await loadFiles(currentFolder);
+            } else if (currentFiles && currentFiles.length > 0) {
                 renderFiles(currentFiles);
             }
         });
@@ -1478,7 +1480,7 @@ function createLowQualityThumbnail(blob) {
 }
 
 // --- File Operations ---
-async function fetchGitHubFiles(path, includeDates = viewMode === 'list') {
+async function fetchGitHubFiles(path, includeDates = (viewMode === 'list' || sortBy === 'date')) {
     const datesParam = includeDates ? '&includeDates=1' : '';
     const res = await fetch(`${API_BASE}/github/files?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(path)}${datesParam}`, {
         headers: { 'Authorization': `Bearer ${ghToken}` }
@@ -1531,8 +1533,20 @@ function sortFiles(items) {
                 comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
                 break;
             case 'date':
-                // GitHub API doesn't provide modified date in directory listing, so we'll sort by name as fallback
-                comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+                const timeA = a.date ? new Date(a.date).getTime() : NaN;
+                const timeB = b.date ? new Date(b.date).getTime() : NaN;
+                const hasA = Number.isFinite(timeA);
+                const hasB = Number.isFinite(timeB);
+
+                // Keep unknown dates at the end for both ascending and descending sorts.
+                if (hasA && !hasB) return -1;
+                if (!hasA && hasB) return 1;
+
+                if (!hasA && !hasB) {
+                    comparison = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+                } else {
+                    comparison = sortOrder === 'asc' ? (timeA - timeB) : (timeB - timeA);
+                }
                 break;
             case 'size':
                 comparison = (a.size || 0) - (b.size || 0);
@@ -1544,6 +1558,10 @@ function sortFiles(items) {
                 break;
         }
         
+        if (sortBy === 'date') {
+            return comparison;
+        }
+
         return sortOrder === 'asc' ? comparison : -comparison;
     };
     
