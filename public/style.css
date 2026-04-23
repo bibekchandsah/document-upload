@@ -1604,6 +1604,33 @@ span.breadcrumb-item:hover {
     white-space: nowrap;
 }
 
+.file-date {
+    color: var(--secondary-text);
+    font-size: 0.8rem;
+}
+
+.file-grid.list-view .file-date::before {
+    content: "• ";
+    color: var(--secondary-text);
+    margin: 0 0.25rem;
+}
+
+.file-grid:not(.list-view) .file-date {
+    display: block;
+    margin-top: 0.2rem;
+}
+
+@media (max-width: 425px) {
+    .file-grid.list-view .file-size {
+        display: none;
+    }
+
+    .file-grid.list-view .file-date::before {
+        content: "";
+        margin: 0;
+    }
+}
+
 .item-status-bar {
     flex-shrink: 0;
     display: flex;

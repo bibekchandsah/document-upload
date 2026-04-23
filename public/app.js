@@ -789,6 +789,9 @@ async function loadApp() {
             viewMode = viewMode === 'grid' ? 'list' : 'grid';
             localStorage.setItem('viewMode', viewMode);
             applyViewMode();
+            if (viewMode === 'list') {
+                loadFiles(currentFolder);
+            }
         });
     }
 
@@ -1475,8 +1478,9 @@ function createLowQualityThumbnail(blob) {
 }
 
 // --- File Operations ---
-async function fetchGitHubFiles(path) {
-    const res = await fetch(`${API_BASE}/github/files?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(path)}`, {
+async function fetchGitHubFiles(path, includeDates = viewMode === 'list') {
+    const datesParam = includeDates ? '&includeDates=1' : '';
+    const res = await fetch(`${API_BASE}/github/files?owner=${ghUser}&repo=${ghRepo}&branch=${ghBranch}&path=${encodeURIComponent(path)}${datesParam}`, {
         headers: { 'Authorization': `Bearer ${ghToken}` }
     });
     if (!res.ok) throw new Error('Failed to fetch files');
@@ -1712,6 +1716,20 @@ async function renderFiles(items) {
                 fileMeta.textContent = 'Folder';
             }
 
+            if (viewMode === 'list') {
+                const formattedDate = formatDate(item.date);
+                if (formattedDate) {
+                    const baseText = fileMeta.textContent || fileMeta.innerText || '';
+                    fileMeta.innerHTML = `<span class="file-size">${baseText}</span><span class="file-date">${formattedDate}</span>`;
+                }
+            } else {
+                const formattedDate = formatDate(item.date);
+                if (formattedDate) {
+                    const baseText = fileMeta.textContent || fileMeta.innerText || '';
+                    fileMeta.innerHTML = `<span class="file-size">${baseText}</span><span class="file-date">${formattedDate}</span>`;
+                }
+            }
+
             card.appendChild(fileIcon);
             card.appendChild(fileName);
             card.appendChild(fileMeta);
@@ -1746,6 +1764,18 @@ async function renderFiles(items) {
                 fileMeta.innerHTML = metaText + `<br><span style="font-size:0.7rem; color:#888;">${item.path || 'Home'}</span>`;
             } else {
                 fileMeta.textContent = metaText;
+            }
+
+            if (viewMode === 'list') {
+                const formattedDate = formatDate(item.date);
+                if (formattedDate) {
+                    fileMeta.innerHTML = `<span class="file-size">${metaText}</span><span class="file-date">${formattedDate}</span>`;
+                }
+            } else {
+                const formattedDate = formatDate(item.date);
+                if (formattedDate) {
+                    fileMeta.innerHTML = `<span class="file-size">${metaText}</span><span class="file-date">${formattedDate}</span>`;
+                }
             }
 
             // Create thumbnail element for images and PDFs
@@ -1879,6 +1909,17 @@ function formatSize(bytes) {
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit'
+    });
 }
 
 // --- Upload ---
@@ -4093,7 +4134,7 @@ async function loadFolderChildren(container, path, depth) {
     container.appendChild(loadingRow);
 
     try {
-        const items = await fetchGitHubFiles(path);
+        const items = await fetchGitHubFiles(path, false);
         const directories = items
             .filter(item => item.isDirectory)
             .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));

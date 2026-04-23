@@ -714,7 +714,7 @@ async function getRepoPath(octokit, owner, repo, branch, dirPath) {
 // List Files (from 'uploads' folder)
 app.get('/api/github/files', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
-    const { owner, repo, branch, path: dirPath = '' } = req.query;
+    const { owner, repo, branch, path: dirPath = '', includeDates } = req.query;
 
     if (!token || !owner || !repo) return res.status(400).json({ error: 'Missing requirements' });
 
@@ -795,7 +795,7 @@ app.get('/api/github/files', async (req, res) => {
             return res.json([]);
         }
 
-        const items = data.map(item => ({
+        let items = data.map(item => ({
             name: item.name,
             isDirectory: item.type === 'dir',
             size: item.size,
@@ -804,6 +804,49 @@ app.get('/api/github/files', async (req, res) => {
             path: dirPath, // Relative path for frontend context
             isRootPath: useRootFallback // Flag to indicate this is from root directory
         }));
+
+        if (includeDates === '1') {
+            const targetPathPrefix = targetPath ? `${targetPath}/` : '';
+
+            const getLastModified = async (item) => {
+                try {
+                    const fullItemPath = `${targetPathPrefix}${item.name}`;
+                    const commits = await octokit.rest.repos.listCommits({
+                        owner,
+                        repo,
+                        sha: branch || 'main',
+                        path: fullItemPath,
+                        per_page: 1
+                    });
+
+                    const latest = commits.data && commits.data[0];
+                    return latest && latest.commit ? latest.commit.committer?.date || latest.commit.author?.date || null : null;
+                } catch (err) {
+                    return null;
+                }
+            };
+
+            const withConcurrency = async (list, limit, iterator) => {
+                const results = new Array(list.length);
+                let index = 0;
+
+                const workers = new Array(Math.min(limit, list.length)).fill(null).map(async () => {
+                    while (index < list.length) {
+                        const currentIndex = index++;
+                        results[currentIndex] = await iterator(list[currentIndex], currentIndex);
+                    }
+                });
+
+                await Promise.all(workers);
+                return results;
+            };
+
+            const dates = await withConcurrency(items, 5, getLastModified);
+            items = items.map((item, idx) => ({
+                ...item,
+                date: dates[idx]
+            }));
+        }
 
         // Sort
         items.sort((a, b) => {
