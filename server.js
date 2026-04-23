@@ -938,6 +938,73 @@ app.post('/api/github/create-folder', async (req, res) => {
     }
 });
 
+// Create File (empty file)
+app.post('/api/github/create-file', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { owner, repo, branch, folder, name } = req.body;
+
+    if (!token || !owner || !repo || !name) return res.status(400).json({ error: 'Missing requirements' });
+
+    try {
+        const octokit = getOctokit(token);
+
+        // Check if uploads folder exists
+        let hasUploadsFolder = false;
+        try {
+            await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: 'uploads',
+                ref: branch || 'main'
+            });
+            hasUploadsFolder = true;
+        } catch (err) {
+            if (err.status === 404) {
+                hasUploadsFolder = false;
+            }
+        }
+
+        const newFilePath = hasUploadsFolder
+            ? (folder ? `uploads/${folder}/${name}` : `uploads/${name}`)
+            : (folder ? `${folder}/${name}` : name);
+
+        let sha;
+        try {
+            const { data } = await octokit.rest.repos.getContent({
+                owner,
+                repo,
+                path: newFilePath,
+                ref: branch || 'main'
+            });
+            sha = data.sha;
+        } catch (err) {
+            if (err.status !== 404) {
+                throw err;
+            }
+        }
+
+        await octokit.rest.repos.createOrUpdateFileContents({
+            owner,
+            repo,
+            path: newFilePath,
+            message: `Create file ${name}`,
+            content: Buffer.from('').toString('base64'),
+            sha,
+            branch: branch || 'main'
+        });
+
+        res.json({ message: 'File created' });
+    } catch (error) {
+        console.error(error);
+
+        if (error.status === 422) {
+            return res.status(409).json({ error: 'File already exists' });
+        }
+
+        res.status(500).json({ error: 'File creation failed' });
+    }
+});
+
 // Update File Content (for text editor)
 app.post('/api/github/update', upload.single('file'), async (req, res) => {
     const token = req.headers['x-gh-token'];

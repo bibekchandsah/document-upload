@@ -1089,9 +1089,22 @@ async function showBreadcrumbDropdown(separatorWrapper, parentPath) {
 }
 
 createFolderBtn.onclick = async () => {
-    let name = prompt('Enter folder name:');
+    let name = prompt('Enter folder or file name:');
     if (!name || name.trim() === '') return;
     name = name.trim();
+
+    const isFileName = isLikelyFileName(name);
+
+    if (isFileName) {
+        const existingFileNames = currentFiles.filter(item => !item.isDirectory).map(item => item.name);
+        if (existingFileNames.includes(name)) {
+            alert(`❌ File "${name}" already exists!\n\nPlease choose a different name.`);
+            return;
+        }
+
+        await createFile(name);
+        return;
+    }
 
     // Check for duplicate folder names
     const existingFolderNames = currentFiles.filter(item => item.isDirectory === true).map(item => item.name);
@@ -1107,6 +1120,17 @@ createFolderBtn.onclick = async () => {
 
     await createFolder(name);
 };
+
+function isLikelyFileName(name) {
+    const trimmedName = name.trim();
+    const lastSegment = trimmedName.split('/').pop();
+
+    if (!lastSegment || lastSegment.endsWith('.')) {
+        return false;
+    }
+
+    return lastSegment.includes('.');
+}
 
 async function createFolder(name) {
     try {
@@ -1140,6 +1164,108 @@ async function createFolder(name) {
         }
     } catch (err) {
         console.error(err);
+        return false;
+    }
+}
+
+async function createFile(name) {
+    try {
+        const res = await fetch(`${API_BASE}/github/create-file`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ghToken}`
+            },
+            body: JSON.stringify({
+                owner: ghUser,
+                repo: ghRepo,
+                branch: ghBranch,
+                folder: currentFolder,
+                name
+            })
+        });
+
+        if (res.ok) {
+            await loadFiles(currentFolder);
+            if (currentFolder === '') await loadSidebarFolders();
+            return true;
+        }
+
+        if (res.status === 404) {
+            const fallbackCreated = await createFileDirectlyOnGitHub(name);
+            if (fallbackCreated) {
+                await loadFiles(currentFolder);
+                if (currentFolder === '') await loadSidebarFolders();
+                return true;
+            }
+        }
+
+        if (res.status === 409) {
+            alert('File already exists');
+            return false;
+        }
+
+        alert('Failed to create file');
+        return false;
+    } catch (err) {
+        console.error(err);
+        alert('Failed to create file');
+        return false;
+    }
+}
+
+async function createFileDirectlyOnGitHub(name) {
+    try {
+        const authHeaders = {
+            'Authorization': `token ${ghToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        };
+
+        const uploadsResponse = await fetch(`https://api.github.com/repos/${ghUser}/${ghRepo}/contents/uploads?ref=${encodeURIComponent(ghBranch || 'main')}`, {
+            headers: authHeaders
+        });
+
+        const hasUploadsFolder = uploadsResponse.ok;
+        const targetPath = hasUploadsFolder
+            ? (currentFolder ? `uploads/${currentFolder}/${name}` : `uploads/${name}`)
+            : (currentFolder ? `${currentFolder}/${name}` : name);
+
+        let sha;
+        const existingResponse = await fetch(`https://api.github.com/repos/${ghUser}/${ghRepo}/contents/${encodeURIComponent(targetPath)}?ref=${encodeURIComponent(ghBranch || 'main')}`, {
+            headers: authHeaders
+        });
+
+        if (existingResponse.ok) {
+            const existingData = await existingResponse.json();
+            sha = existingData.sha;
+        }
+
+        const putResponse = await fetch(`https://api.github.com/repos/${ghUser}/${ghRepo}/contents/${encodeURIComponent(targetPath)}`, {
+            method: 'PUT',
+            headers: authHeaders,
+            body: JSON.stringify({
+                message: `Create file ${name}`,
+                content: btoa(''),
+                sha,
+                branch: ghBranch || 'main'
+            })
+        });
+
+        if (putResponse.ok) {
+            return true;
+        }
+
+        if (putResponse.status === 422) {
+            alert('File already exists');
+            return false;
+        }
+
+        const errorData = await putResponse.json().catch(() => ({}));
+        console.error('GitHub direct file creation failed:', errorData);
+        return false;
+    } catch (error) {
+        console.error('Direct GitHub file creation failed:', error);
         return false;
     }
 }
@@ -3691,6 +3817,43 @@ async function renderFolderTree() {
         if (loading) {
             loading.innerHTML = '<div style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Failed to load folders</div>';
         }
+    }
+}
+
+async function createFile(name) {
+    try {
+        const res = await fetch(`${API_BASE}/github/create-file`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ghToken}`
+            },
+            body: JSON.stringify({
+                owner: ghUser,
+                repo: ghRepo,
+                branch: ghBranch,
+                folder: currentFolder,
+                name
+            })
+        });
+
+        if (res.ok) {
+            await loadFiles(currentFolder);
+            if (currentFolder === '') await loadSidebarFolders();
+            return true;
+        }
+
+        if (res.status === 409) {
+            alert('File already exists');
+            return false;
+        }
+
+        alert('Failed to create file');
+        return false;
+    } catch (error) {
+        console.error('Error creating file:', error);
+        alert('Failed to create file');
+        return false;
     }
 }
 

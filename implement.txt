@@ -76,7 +76,7 @@ Repository Size: 878.40 MB
 38) thumbnaail preview fixed and view-option-bar horizontal scrolling using mouse
 39) progressive rendering of directory in copy & move 
 40) The app now has an Explorer-style bottom status bar that shows item counts for the current view, and a new Status Bar toggle in the view options lets the user show or hide it persistently.
-41)
+41) The plus icon and folder prompt now behave smartly: if the name contains a dot, it creates an empty file in GitHub; otherwise it creates a folder. This allows for quick file creation without needing a separate file creation button.
 Auto-refresh - Detect external changes and update view
 
 1. File Management Operations
