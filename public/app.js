@@ -3871,10 +3871,33 @@ const closeFolderSelectionModal = document.getElementById('closeFolderSelectionM
 const cancelFolderSelection = document.getElementById('cancelFolderSelection');
 const confirmFolderSelection = document.getElementById('confirmFolderSelection');
 let selectedDestFolders = new Set(); // Changed to Set for multiple selection
+const folderChildPresenceCache = new Map();
+
+function getSelectedDirectorySourcePaths() {
+    const selectedItems = Array.from(selectedFiles)
+        .map(itemName => currentFiles.find(item => item.name === itemName))
+        .filter(item => item && item.isDirectory);
+
+    return selectedItems.map(item => (currentFolder ? `${currentFolder}/${item.name}` : item.name));
+}
+
+function isForbiddenDestination(folderPath) {
+    // Prevent selecting the current folder (no-op move/copy destination)
+    if (folderPath === currentFolder) {
+        return true;
+    }
+
+    // Prevent moving/copying a folder into itself or any of its descendants.
+    const selectedDirectoryPaths = getSelectedDirectorySourcePaths();
+    return selectedDirectoryPaths.some(sourcePath =>
+        folderPath === sourcePath || folderPath.startsWith(`${sourcePath}/`)
+    );
+}
 
 async function showFolderSelectionModal(operation) {
     folderSelectionOperation = operation;
     selectedDestFolders.clear(); // Clear previous selections
+    folderChildPresenceCache.clear();
     const title = document.getElementById('folderSelectionTitle');
     title.textContent = `Select Destination Folders (${operation === 'move' ? 'Move' : 'Copy'})`;
 
@@ -3894,46 +3917,210 @@ async function showFolderSelectionModal(operation) {
 
 async function renderFolderTree() {
     const folderTree = document.getElementById('folderTree');
-    folderTree.innerHTML = '';
+    folderTree.innerHTML = '<div class="folder-tree-loading"><i class="fas fa-spinner fa-spin"></i> Loading folders...</div>';
 
     try {
-        // Add Home folder
-        const homeDiv = createFolderTreeItem('', '<i class="fas fa-home"></i> Home', 0);
-        
-        // Disable if current folder is home
-        if (currentFolder === '') {
-            homeDiv.style.opacity = '0.5';
-            homeDiv.style.cursor = 'not-allowed';
-            homeDiv.style.pointerEvents = 'none';
-            homeDiv.querySelector('input[type="checkbox"]').disabled = true;
-            homeDiv.title = 'Cannot move/copy to current folder';
+        const treeRoot = document.createElement('div');
+        treeRoot.className = 'folder-tree-root';
+
+        // Home node
+        const homeNode = document.createElement('div');
+        homeNode.className = 'folder-tree-node';
+        homeNode.appendChild(createFolderTreeItem('', '<i class="fas fa-home"></i> Home', 0));
+        treeRoot.appendChild(homeNode);
+
+        // Root-level folders container (loaded lazily by branch)
+        const rootFolders = document.createElement('div');
+        rootFolders.className = 'folder-tree-children root-level';
+        treeRoot.appendChild(rootFolders);
+
+        folderTree.innerHTML = '';
+        folderTree.appendChild(treeRoot);
+
+        await loadFolderChildren(rootFolders, '', 0);
+
+        if (rootFolders.children.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'folder-tree-empty';
+            empty.innerHTML = '<i class="fas fa-folder-open"></i> No folders found';
+            rootFolders.appendChild(empty);
         }
 
-        folderTree.appendChild(homeDiv);
-
-        // Add loading indicator
-        const loadingDiv = document.createElement('div');
-        loadingDiv.id = 'folderTreeLoading';
-        loadingDiv.style.padding = '1rem';
-        loadingDiv.style.textAlign = 'center';
-        loadingDiv.style.color = '#6b7280';
-        loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading folders...';
-        folderTree.appendChild(loadingDiv);
-
-        // Get all folders recursively with progressive rendering
-        await fetchAllFoldersProgressive();
-
-        // Remove loading indicator
-        const loading = document.getElementById('folderTreeLoading');
-        if (loading) loading.remove();
+        updateFolderTreeSelectionUI();
 
     } catch (err) {
         console.error('Error loading folders:', err);
-        const loading = document.getElementById('folderTreeLoading');
-        if (loading) {
-            loading.innerHTML = '<div style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Failed to load folders</div>';
-        }
+        folderTree.innerHTML = '<div style="padding: 1rem; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Failed to load folders</div>';
     }
+}
+
+function createLazyFolderNode(folderPath, folderName, depth, hasChildren) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'folder-tree-node';
+
+    const row = createFolderTreeItem(
+        folderPath,
+        `<i class="fas fa-folder"></i> ${folderName}`,
+        depth + 1,
+        hasChildren
+    );
+
+    wrapper.appendChild(row);
+
+    if (hasChildren) {
+        const childrenContainer = document.createElement('div');
+        childrenContainer.className = 'folder-tree-children hidden';
+
+        const toggleBtn = row.querySelector('.folder-expand-toggle');
+        let loaded = false;
+        let loading = false;
+
+        const expandOrCollapse = async () => {
+            const isExpanded = wrapper.classList.toggle('expanded');
+            childrenContainer.classList.toggle('hidden', !isExpanded);
+
+            if (toggleBtn) {
+                toggleBtn.innerHTML = isExpanded
+                    ? '<i class="fas fa-chevron-down"></i>'
+                    : '<i class="fas fa-chevron-right"></i>';
+            }
+
+            if (isExpanded && !loaded && !loading) {
+                loading = true;
+                if (toggleBtn) {
+                    toggleBtn.classList.add('loading');
+                    toggleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                }
+
+                await loadFolderChildren(childrenContainer, folderPath, depth + 1);
+                loaded = true;
+                loading = false;
+
+                if (toggleBtn) {
+                    toggleBtn.classList.remove('loading');
+                    toggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+
+                    if (childrenContainer.children.length === 0) {
+                        toggleBtn.classList.add('empty');
+                    }
+                }
+            }
+        };
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                expandOrCollapse();
+            });
+        }
+
+        wrapper.appendChild(childrenContainer);
+    }
+
+    return wrapper;
+}
+
+async function loadFolderChildren(container, path, depth) {
+    const loadingRow = document.createElement('div');
+    loadingRow.className = 'folder-tree-loading branch';
+    loadingRow.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    container.appendChild(loadingRow);
+
+    try {
+        const items = await fetchGitHubFiles(path);
+        const directories = items
+            .filter(item => item.isDirectory)
+            .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+        const folderNodes = await Promise.all(directories.map(async (item) => {
+            const folderPath = path ? `${path}/${item.name}` : item.name;
+            const hasChildren = await checkFolderHasChildren(folderPath);
+            return { folderPath, name: item.name, hasChildren };
+        }));
+
+        loadingRow.remove();
+
+        folderNodes.forEach(node => {
+            container.appendChild(createLazyFolderNode(node.folderPath, node.name, depth, node.hasChildren));
+        });
+    } catch (error) {
+        loadingRow.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed to load';
+        loadingRow.style.color = '#ef4444';
+        throw error;
+    }
+}
+
+async function checkFolderHasChildren(folderPath) {
+    if (folderChildPresenceCache.has(folderPath)) {
+        return folderChildPresenceCache.get(folderPath);
+    }
+
+    try {
+        const items = await fetchGitHubFiles(folderPath);
+        const hasChildren = items.some(item => item.isDirectory);
+        folderChildPresenceCache.set(folderPath, hasChildren);
+        return hasChildren;
+    } catch (error) {
+        folderChildPresenceCache.set(folderPath, true);
+        return true;
+    }
+}
+
+function createFolderTreeItem(folderPath, labelHTML, indent, hasChildren = false) {
+    const div = document.createElement('div');
+    div.className = 'folder-tree-item';
+    div.style.paddingLeft = `${indent}rem`;
+    div.dataset.folder = folderPath;
+
+    if (hasChildren) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'folder-expand-toggle';
+        toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        div.appendChild(toggleBtn);
+    } else {
+        const spacer = document.createElement('span');
+        spacer.className = 'folder-expand-spacer';
+        div.appendChild(spacer);
+    }
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.onclick = (e) => {
+        e.stopPropagation();
+        toggleDestFolder(folderPath);
+    };
+
+    const label = document.createElement('span');
+    label.className = 'folder-tree-label';
+    label.innerHTML = labelHTML;
+
+    div.appendChild(checkbox);
+    div.appendChild(label);
+    div.onclick = (e) => {
+        // Allow expand/collapse controls to work even on disabled rows.
+        if (e.target.closest('.folder-expand-toggle')) {
+            return;
+        }
+        toggleDestFolder(folderPath);
+    };
+
+    // Disable invalid destination folders
+    if (isForbiddenDestination(folderPath)) {
+        div.classList.add('disabled');
+        checkbox.disabled = true;
+
+        const selectedDirectoryPaths = getSelectedDirectorySourcePaths();
+        const isSelfOrDescendant = selectedDirectoryPaths.some(sourcePath =>
+            folderPath === sourcePath || folderPath.startsWith(`${sourcePath}/`)
+        );
+
+        div.title = isSelfOrDescendant
+            ? 'Cannot move/copy a folder into itself or its child folder'
+            : 'Cannot move/copy to current folder';
+    }
+
+    return div;
 }
 
 async function createFile(name) {
@@ -3973,106 +4160,32 @@ async function createFile(name) {
     }
 }
 
-function createFolderTreeItem(folderPath, labelHTML, indent) {
-    const div = document.createElement('div');
-    div.className = 'folder-tree-item';
-    div.style.display = 'flex';
-    div.style.alignItems = 'center';
-    div.style.gap = '0.5rem';
-    div.style.paddingLeft = `${indent + 1}rem`;
-    div.style.padding = '0.5rem';
-    div.style.cursor = 'pointer';
-    div.dataset.folder = folderPath;
+function updateFolderTreeSelectionUI() {
+    document.querySelectorAll('.folder-tree-item').forEach(el => {
+        const elFolder = el.dataset.folder;
+        const checkbox = el.querySelector('input[type="checkbox"]');
+        const isSelected = selectedDestFolders.has(elFolder);
 
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.style.cursor = 'pointer';
-    checkbox.onclick = (e) => {
-        e.stopPropagation();
-        toggleDestFolder(folderPath);
-    };
-
-    const label = document.createElement('span');
-    label.innerHTML = labelHTML;
-    label.style.flex = '1';
-
-    div.appendChild(checkbox);
-    div.appendChild(label);
-    div.onclick = () => toggleDestFolder(folderPath);
-
-    // Disable if it's the current folder
-    if (folderPath === currentFolder) {
-        div.style.opacity = '0.5';
-        div.style.cursor = 'not-allowed';
-        div.style.pointerEvents = 'none';
-        checkbox.disabled = true;
-        div.title = 'Cannot move/copy to current folder';
-    }
-
-    return div;
-}
-
-async function fetchAllFoldersProgressive(path = '', indent = 0) {
-    try {
-        const items = await fetchGitHubFiles(path);
-        const folderTree = document.getElementById('folderTree');
-        const loadingDiv = document.getElementById('folderTreeLoading');
-        
-        // Collect folders at this level
-        const subfolderPaths = [];
-        for (const item of items) {
-            if (item.isDirectory) {
-                const folderPath = path ? `${path}/${item.name}` : item.name;
-                subfolderPaths.push(folderPath);
-                
-                // Create and add folder item immediately (progressive rendering)
-                const folderItem = createFolderTreeItem(
-                    folderPath, 
-                    `<i class="fas fa-folder"></i> ${item.name}`,
-                    indent
-                );
-                
-                // Insert before loading indicator
-                if (loadingDiv && loadingDiv.parentNode === folderTree) {
-                    folderTree.insertBefore(folderItem, loadingDiv);
-                } else {
-                    folderTree.appendChild(folderItem);
-                }
-            }
+        if (checkbox && !checkbox.disabled) {
+            checkbox.checked = isSelected;
         }
 
-        // Recursively fetch subfolders (one level at a time for progressive loading)
-        for (const folderPath of subfolderPaths) {
-            await fetchAllFoldersProgressive(folderPath, indent + 1);
-        }
-
-    } catch (err) {
-        console.error('Error fetching folders:', err);
-    }
+        el.classList.toggle('selected', isSelected);
+    });
 }
 
 function toggleDestFolder(folder) {
+    if (isForbiddenDestination(folder)) {
+        return;
+    }
+
     if (selectedDestFolders.has(folder)) {
         selectedDestFolders.delete(folder);
     } else {
         selectedDestFolders.add(folder);
     }
 
-    // Update checkboxes
-    document.querySelectorAll('.folder-tree-item').forEach(el => {
-        const elFolder = el.dataset.folder;
-        const checkbox = el.querySelector('input[type="checkbox"]');
-        if (checkbox && !checkbox.disabled) {
-            checkbox.checked = selectedDestFolders.has(elFolder);
-        }
-
-        // Highlight selected folders
-        if (selectedDestFolders.has(elFolder)) {
-            el.style.background = 'var(--hover-bg)';
-        } else {
-            el.style.background = '';
-        }
-    });
+    updateFolderTreeSelectionUI();
 
     updateSelectedFoldersCount();
 }

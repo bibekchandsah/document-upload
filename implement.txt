@@ -79,6 +79,7 @@ Repository Size: 878.40 MB
 41) The plus icon and folder prompt now behave smartly: if the name contains a dot, it creates an empty file in GitHub; otherwise it creates a folder. This allows for quick file creation without needing a separate file creation button.
 Auto-refresh - Detect external changes and update view
 42) PDF thumbnails now appear in the file grid when Thumbnails is enabled, using PDF.js to render page 1 as a small preview.
+43) Users can clearly see when folder tree data is loading. Folders without children no longer show misleading Expand arrow (chevron).
 
 1. File Management Operations
     - Rename files/folders

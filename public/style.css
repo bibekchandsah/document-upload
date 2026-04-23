@@ -2207,12 +2207,54 @@ span.breadcrumb-item:hover {
 }
 
 /* Folder Tree Items */
+.folder-tree-root {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.folder-tree-node {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.folder-tree-children {
+    margin-left: 1rem;
+    border-left: 1px dashed var(--border-color);
+    padding-left: 0.25rem;
+}
+
+.folder-tree-children.root-level {
+    margin-left: 0;
+    border-left: none;
+    padding-left: 0;
+}
+
 .folder-tree-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     padding: 0.75rem;
     cursor: pointer;
     border-radius: 0.375rem;
     transition: all 0.2s;
     margin-bottom: 0.25rem;
+}
+
+.folder-tree-item.selected {
+    background-color: var(--hover-bg);
+    border: 1px solid var(--primary-color);
+}
+
+.folder-tree-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.folder-tree-item.disabled .folder-expand-toggle {
+    opacity: 1;
+    cursor: pointer;
 }
 
 .folder-tree-item:hover:not([style*="pointer-events: none"]) {
@@ -2252,6 +2294,64 @@ span.breadcrumb-item:hover {
     font-size: 0.9375rem;
     color: var(--text-color);
     transition: color 0.3s ease;
+}
+
+.folder-tree-label {
+    flex: 1;
+}
+
+.folder-tree-empty {
+    padding: 0.75rem;
+    color: var(--secondary-text);
+    font-size: 0.9rem;
+}
+
+.folder-tree-loading {
+    padding: 0.75rem;
+    color: var(--secondary-text);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.folder-tree-loading.branch {
+    margin-left: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.folder-expand-toggle {
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    color: var(--secondary-text);
+    cursor: pointer;
+    border-radius: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.folder-expand-toggle:hover {
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+.folder-expand-toggle.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.folder-expand-toggle.empty {
+    visibility: hidden;
+}
+
+.folder-expand-spacer {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
 }
 
 /* Thumbnail Toggle */
