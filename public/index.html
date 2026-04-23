@@ -159,6 +159,11 @@
                     <i class="fas fa-image"></i>
                     <span>Thumbnails</span>
                 </label>
+                <label class="view-option-toggle" title="Show or hide the bottom status bar">
+                    <input type="checkbox" id="showStatusBar">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Status Bar</span>
+                </label>
                 <label class="view-option-toggle" title="Enable Locked Folder for secure file storage">
                     <input type="checkbox" id="showLockedFolder">
                     <i class="fas fa-lock"></i>
@@ -209,6 +214,10 @@
                     <i class="fas fa-folder"></i>
                     <p>Select a folder to view files</p>
                 </div>
+            </div>
+
+            <div id="itemStatusBar" class="item-status-bar">
+                <span id="itemStatusText">0 items</span>
             </div>
         </main>
 

@@ -33,6 +33,8 @@ const customTimeInput = document.getElementById('customTimeInput');
 const customHours = document.getElementById('customHours');
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
+const itemStatusBar = document.getElementById('itemStatusBar');
+const itemStatusText = document.getElementById('itemStatusText');
 
 
 // Initialize Image Editor Module
@@ -99,6 +101,7 @@ let viewerCropper = null; // Cropper instance for image viewer
 let selectedFiles = new Set(); // Track selected files for bulk operations
 let selectionMode = false; // Track if we're in selection mode
 let showThumbnails = localStorage.getItem('showThumbnails') === 'true'; // Track thumbnail preference
+let showStatusBar = localStorage.getItem('showStatusBar') !== 'false'; // Track bottom status bar preference
 let lastClickedIndex = -1; // Track last clicked item for shift+click range selection
 let sortBy = localStorage.getItem('sortBy') || 'name'; // Track sort criteria
 let sortOrder = localStorage.getItem('sortOrder') || 'asc'; // Track sort order (asc/desc)
@@ -128,6 +131,33 @@ function hideProcessing() {
     if (indicator) {
         indicator.classList.remove('active');
     }
+}
+
+function updateItemStatusBar(items = []) {
+    if (!itemStatusBar || !itemStatusText) {
+        return;
+    }
+
+    const visibleItems = Array.isArray(items) ? items : [];
+    const folderCount = visibleItems.filter(item => item.isDirectory).length;
+    const fileCount = visibleItems.filter(item => !item.isDirectory).length;
+    const totalCount = visibleItems.length;
+    const folderLabel = folderCount === 1 ? 'folder' : 'folders';
+    const fileLabel = fileCount === 1 ? 'file' : 'files';
+
+    itemStatusText.textContent = totalCount === 1
+        ? `1 item | ${folderCount} ${folderLabel} | ${fileCount} ${fileLabel}`
+        : `${totalCount} items | ${folderCount} ${folderLabel} | ${fileCount} ${fileLabel}`;
+
+    itemStatusBar.classList.toggle('hidden', !showStatusBar);
+}
+
+function applyStatusBarPreference() {
+    if (!itemStatusBar) {
+        return;
+    }
+
+    itemStatusBar.classList.toggle('hidden', !showStatusBar);
 }
 
 // Lazy Loading Observer
@@ -605,6 +635,19 @@ async function loadApp() {
             showThumbnails = e.target.checked;
             localStorage.setItem('showThumbnails', showThumbnails);
             renderFiles(currentFiles); // Re-render with/without thumbnails
+        });
+    }
+
+    // Initialize status bar toggle
+    const statusBarToggle = document.getElementById('showStatusBar');
+    if (statusBarToggle) {
+        statusBarToggle.checked = showStatusBar;
+        applyStatusBarPreference();
+        statusBarToggle.addEventListener('change', (e) => {
+            showStatusBar = e.target.checked;
+            localStorage.setItem('showStatusBar', showStatusBar);
+            applyStatusBarPreference();
+            updateItemStatusBar(currentFiles);
         });
     }
 
@@ -1173,6 +1216,7 @@ async function loadFiles(folder) {
         }
 
         fileGrid.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading...</p></div>';
+        updateItemStatusBar([]);
         const items = await fetchGitHubFiles(folder);
         currentFiles = items;
         window.currentFiles = items; // Update global reference
@@ -1185,6 +1229,7 @@ async function loadFiles(folder) {
     } catch (err) {
         console.error('Failed to load files', err);
         fileGrid.innerHTML = `<div class="empty-state"><p style="color:red">Failed to load content. Check your connection or repo settings.</p></div>`;
+        updateItemStatusBar([]);
     }
 }
 
@@ -1252,6 +1297,8 @@ async function renderFiles(items) {
             });
         }
     }
+
+    updateItemStatusBar(items);
     
     if (items.length === 0) {
         fileGrid.innerHTML = `

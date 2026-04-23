@@ -1483,6 +1483,29 @@ span.breadcrumb-item:hover {
     border-radius: 0.5rem;
 }
 
+.item-status-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    background: var(--card-bg);
+    border-top: 1px solid var(--border-color);
+    color: var(--secondary-text);
+    font-size: 0.875rem;
+    font-weight: 500;
+    min-height: 3rem;
+}
+
+[data-theme="dark"] .item-status-bar {
+    background: var(--sidebar-bg);
+}
+
+.item-status-bar.hidden {
+    display: none;
+}
+
 .file-card {
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
@@ -2554,6 +2577,12 @@ span.breadcrumb-item:hover {
         grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     }
 
+    .item-status-bar {
+        padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+        font-size: 0.8rem;
+        min-height: 2.75rem;
+    }
+
     /* Ensure scrollable area for browser UI auto-hide */
     .main-content {
         min-height: calc(100vh + 1px);
@@ -2600,6 +2629,12 @@ span.breadcrumb-item:hover {
 
     .file-grid {
         grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+
+    .item-status-bar {
+        padding: 0.6rem 0.85rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+        font-size: 0.75rem;
+        min-height: 2.5rem;
     }
 }
 
