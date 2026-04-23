@@ -1483,6 +1483,127 @@ span.breadcrumb-item:hover {
     border-radius: 0.5rem;
 }
 
+.file-grid.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-content: initial;
+}
+
+.file-grid.list-view .file-card {
+    width: 100%;
+    min-height: 68px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    padding: 0.75rem 3rem 0.75rem 2.5rem;
+    transform: none;
+}
+
+.file-grid.list-view .file-card:hover {
+    transform: none;
+}
+
+.file-grid.list-view .file-card-checkbox {
+    top: 50%;
+    left: 0.75rem;
+    transform: translateY(-50%);
+    opacity: 1;
+}
+
+.file-grid.list-view .file-card-actions {
+    top: calc(100% - 0.25rem);
+    right: 0.75rem;
+    transform: none;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow);
+    padding: 0.35rem;
+    z-index: 20;
+}
+
+.file-grid.list-view .file-card.actions-open .file-card-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.file-grid.list-view .file-card:hover .file-card-actions {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.file-grid.list-view .file-card.actions-open:hover .file-card-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.file-grid.list-view .file-card-actions .file-action-btn {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.file-card-actions-toggle {
+    display: none;
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    background: var(--card-bg);
+    color: var(--secondary-text);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    z-index: 21;
+}
+
+.file-card-actions-toggle:hover {
+    color: var(--text-color);
+    border-color: var(--primary-color);
+    background: var(--hover-bg);
+}
+
+.file-grid.list-view .file-card-actions-toggle {
+    display: inline-flex;
+}
+
+.file-grid.list-view .file-icon {
+    margin: 0 0.75rem 0 0;
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.file-grid.list-view .file-thumbnail {
+    width: 56px;
+    height: 56px;
+    margin: 0 0.75rem 0 0;
+    flex-shrink: 0;
+}
+
+.file-grid.list-view .file-name {
+    display: block;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 0.75rem;
+}
+
+.file-grid.list-view .file-meta {
+    margin-top: 0;
+    margin-left: auto;
+    padding-right: 0.25rem;
+    white-space: nowrap;
+}
+
 .item-status-bar {
     flex-shrink: 0;
     display: flex;
@@ -1577,6 +1698,10 @@ span.breadcrumb-item:hover {
 
 .file-card:hover .file-card-actions {
     opacity: 1;
+}
+
+.file-grid:not(.list-view) .file-card:hover .file-card-actions-toggle {
+    display: none;
 }
 
 .file-action-btn {

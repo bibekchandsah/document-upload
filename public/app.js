@@ -101,6 +101,7 @@ let viewerCropper = null; // Cropper instance for image viewer
 let selectedFiles = new Set(); // Track selected files for bulk operations
 let selectionMode = false; // Track if we're in selection mode
 let showThumbnails = localStorage.getItem('showThumbnails') === 'true'; // Track thumbnail preference
+let viewMode = localStorage.getItem('viewMode') || 'grid'; // Track file layout mode
 let showStatusBar = localStorage.getItem('showStatusBar') !== 'false'; // Track bottom status bar preference
 let lastClickedIndex = -1; // Track last clicked item for shift+click range selection
 let sortBy = localStorage.getItem('sortBy') || 'name'; // Track sort criteria
@@ -159,6 +160,37 @@ function applyStatusBarPreference() {
 
     itemStatusBar.classList.toggle('hidden', !showStatusBar);
 }
+
+function applyViewMode() {
+    if (!fileGrid) {
+        return;
+    }
+
+    fileGrid.classList.toggle('list-view', viewMode === 'list');
+
+    const viewModeBtn = document.getElementById('viewModeBtn');
+    if (viewModeBtn) {
+        if (viewMode === 'list') {
+            viewModeBtn.innerHTML = '<i class="fas fa-th-large"></i><span>Grid View</span>';
+            viewModeBtn.title = 'Switch to grid view';
+        } else {
+            viewModeBtn.innerHTML = '<i class="fas fa-list"></i><span>List View</span>';
+            viewModeBtn.title = 'Switch to list view';
+        }
+    }
+}
+
+function closeOpenCardActionMenus(exceptCard = null) {
+    document.querySelectorAll('.file-card.actions-open').forEach(card => {
+        if (card !== exceptCard) {
+            card.classList.remove('actions-open');
+        }
+    });
+}
+
+document.addEventListener('click', () => {
+    closeOpenCardActionMenus();
+});
 
 const pdfThumbnailInFlight = new Map();
 
@@ -746,6 +778,17 @@ async function loadApp() {
             showThumbnails = e.target.checked;
             localStorage.setItem('showThumbnails', showThumbnails);
             renderFiles(currentFiles); // Re-render with/without thumbnails
+        });
+    }
+
+    // Initialize list/grid view toggle
+    const viewModeBtn = document.getElementById('viewModeBtn');
+    if (viewModeBtn) {
+        applyViewMode();
+        viewModeBtn.addEventListener('click', () => {
+            viewMode = viewMode === 'grid' ? 'list' : 'grid';
+            localStorage.setItem('viewMode', viewMode);
+            applyViewMode();
         });
     }
 
@@ -1510,6 +1553,7 @@ function sortFiles(items) {
 
 async function renderFiles(items) {
     fileGrid.innerHTML = '';
+    applyViewMode();
     
     // Check if Locked Folder should be shown
     const showLockedFolder = localStorage.getItem('showLockedFolder') === 'true';
@@ -1612,7 +1656,23 @@ async function renderFiles(items) {
                 <i class="fas fa-trash"></i>
             </button>
         `;
+        actionsDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
         card.appendChild(actionsDiv);
+
+        const actionsToggleBtn = document.createElement('button');
+        actionsToggleBtn.type = 'button';
+        actionsToggleBtn.className = 'file-card-actions-toggle';
+        actionsToggleBtn.title = 'More actions';
+        actionsToggleBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
+        actionsToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const shouldOpen = !card.classList.contains('actions-open');
+            closeOpenCardActionMenus(card);
+            card.classList.toggle('actions-open', shouldOpen);
+        });
+        card.appendChild(actionsToggleBtn);
 
         // Create content elements
         const fileIcon = document.createElement('i');
@@ -1660,6 +1720,9 @@ async function renderFiles(items) {
             const newPath = currentFolder ? `${currentFolder}/${item.name}` : item.name;
             card.onclick = async (e) => {
                 if (!e.target.closest('.file-card-checkbox') && !e.target.closest('.file-card-actions')) {
+                    if (e.target.closest('.file-card-actions-toggle')) {
+                        return;
+                    }
                     // Special handling for Locked Folder at root
                     if (item.name === 'Locked Folder' && currentFolder === '') {
                         const isLocked = await checkFolderLocked('Locked Folder');
@@ -1740,6 +1803,9 @@ async function renderFiles(items) {
 
             card.onclick = (e) => {
                 if (!e.target.closest('.file-card-checkbox') && !e.target.closest('.file-card-actions')) {
+                    if (e.target.closest('.file-card-actions-toggle')) {
+                        return;
+                    }
                     openViewer(item, true, itemFolder);
                 }
             };

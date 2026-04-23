@@ -1,3 +1,5 @@
+run : npm start
+
 1) Expiring access links (valid for limited time)  (custom minute, hour, day duration)  
 2) Smart Search
 Search by:
@@ -80,6 +82,7 @@ Repository Size: 878.40 MB
 Auto-refresh - Detect external changes and update view
 42) PDF thumbnails now appear in the file grid when Thumbnails is enabled, using PDF.js to render page 1 as a small preview.
 43) Users can clearly see when folder tree data is loading. Folders without children no longer show misleading Expand arrow (chevron).
+44) There is now a List/Grid switch in the view options bar, and the choice is saved so it stays after refresh.
 
 1. File Management Operations
     - Rename files/folders
